@@ -4,7 +4,7 @@ Aplicação para Windows que organiza personagens, cenários e competições de 
 
 Esta é a edição de portfólio, com um banco de demonstração independente e os recursos padrão das engines.
 
-![Arena do DreamMover com os personagens padrão](docs/screenshots/arena.jpg)
+[![Visão geral da arena, personagens e indicadores do DreamMover](docs/screenshots/arena.jpg)](docs/screenshots/arena.jpg)
 
 ## Funcionalidades
 
@@ -15,6 +15,14 @@ Esta é a edição de portfólio, com um banco de demonstração independente e 
 - Catálogo de cenários e sequências de cenários por round.
 - Importação de pacotes de personagens e cenários e extração de imagens.
 - Histórico de alterações de personagens.
+
+## Capturas do sistema
+
+Capturas reais da demonstração em **1920 × 1080**. Clique nas imagens para visualizar em tamanho completo.
+
+| Criação de confrontos | Gerenciamento do elenco |
+| --- | --- |
+| [![Seleção de lutadores e preparação de uma partida](docs/screenshots/confronto.jpg)](docs/screenshots/confronto.jpg) | [![Catálogo de personagens com filtros e opções de edição](docs/screenshots/elenco.jpg)](docs/screenshots/elenco.jpg) |
 
 ## Tecnologias
 
