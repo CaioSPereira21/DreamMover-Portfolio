@@ -1,0 +1,523 @@
+@{
+    ViewBag.Title = "Consultar Lutador";
+
+    var lutador = ViewBag.Lutador;
+}
+
+<script type="application/json" id="lutadorDetalhesJson">@Html.Raw(Json.Encode(lutador))</script>
+
+<section id="detalhesLutadorApp" class="fighter-details" aria-labelledby="fighter-profile-title" v-cloak>
+    <div class="modal-header fighter-details__header" :style="getHeroStyle(Lutador)">
+        <div class="fighter-details__identity">
+            <img :src="getImagem(Lutador)" :alt="getNome(Lutador)" class="fighter-details__portrait">
+            <div class="fighter-details__title">
+                <span>{{ getUniversoNome(Lutador) }}</span>
+                <h2 id="fighter-profile-title">{{ getNome(Lutador) }}</h2>
+                <div class="fighter-details__stars" :title="'Nivel ' + getNivel(Lutador)">
+                    <i class="fa fa-star" aria-hidden="true" v-for="estrela in getEstrelasNivel(Lutador)" :key="'nivel-' + estrela"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="fighter-details__progress">
+            <div class="fighter-details__level">
+                <strong>{{ getNivel(Lutador) }}</strong>
+                <i class="fa fa-star" aria-hidden="true"></i>
+            </div>
+            <div class="fighter-details__xp">
+                <div class="fighter-details__xp-copy">
+                    <span>EXP</span>
+                    <strong>{{ getExpAtual(Lutador) }} / {{ getExpMeta(Lutador) }}</strong>
+                </div>
+                <div class="fighter-details__xp-track">
+                    <div class="fighter-details__xp-fill" :style="{ width: getExpPercentual(Lutador) + '%' }"></div>
+                </div>
+                <small>{{ getExpRestante(Lutador) }} para o proximo nivel</small>
+            </div>
+        </div>
+
+        <button type="button"
+                class="fighter-details__close"
+                data-dismiss="modal"
+                aria-label="Fechar"
+                title="Fechar"
+                v-on:click.prevent="fecharModalDetalhes">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <div class="modal-body fighter-details__body">
+        <div class="fighter-details-tabs" role="tablist" aria-label="Detalhes do personagem" v-on:keydown="navegarAbasDetalhes">
+            <button type="button" id="fighter-tab-resumo" role="tab" aria-controls="fighter-panel-resumo"
+                    :aria-selected="AbaDetalhes === 'resumo' ? 'true' : 'false'" :tabindex="AbaDetalhes === 'resumo' ? 0 : -1"
+                    :class="{ 'is-active': AbaDetalhes === 'resumo' }" v-on:click="selecionarAbaDetalhes('resumo')">Visão geral</button>
+            <button type="button" id="fighter-tab-historico" role="tab" aria-controls="fighter-panel-historico"
+                    :aria-selected="AbaDetalhes === 'historico' ? 'true' : 'false'" :tabindex="AbaDetalhes === 'historico' ? 0 : -1"
+                    :class="{ 'is-active': AbaDetalhes === 'historico' }" v-on:click="selecionarAbaDetalhes('historico')">
+                <i class="fa fa-history" aria-hidden="true"></i> Histórico de alterações
+            </button>
+        </div>
+        <div id="fighter-panel-resumo" role="tabpanel" aria-labelledby="fighter-tab-resumo" v-show="AbaDetalhes === 'resumo'">
+        <section class="fighter-details__stats" aria-label="Resumo do lutador">
+            <article class="fighter-stat-card fighter-stat-card--accent">
+                <span>Rating Elo</span>
+                <strong>{{ Lutador.RatingElo || 1000 }}</strong>
+            </article>
+            <article class="fighter-stat-card fighter-stat-card--division">
+                <span>Divisão atual</span>
+                <strong>{{ Lutador.DivisaoNome || 'Sem divisão' }}</strong>
+                <small v-if="Lutador.EmColocacao">Partida {{ Lutador.PartidasColocacao }}/{{ Lutador.TotalPartidasColocacao }}</small>
+                <small v-else>Sequência {{ Lutador.SequenciaDivisao > 0 ? '+' : '' }}{{ Lutador.SequenciaDivisao || 0 }}</small>
+            </article>
+            <article class="fighter-stat-card">
+                <span>Vitorias</span>
+                <strong>{{ Lutador.Vitorias || 0 }}</strong>
+            </article>
+            <article class="fighter-stat-card">
+                <span>Derrotas</span>
+                <strong>{{ Lutador.Derrotas || 0 }}</strong>
+            </article>
+            <article class="fighter-stat-card">
+                <span>Partidas</span>
+                <strong>{{ Lutador.Partidas || 0 }}</strong>
+            </article>
+            <article class="fighter-stat-card">
+                <span>Aproveitamento</span>
+                <strong>{{ aproveitamento }}%</strong>
+            </article>
+        </section>
+
+        <section class="fighter-details__insights" aria-label="Indicadores">
+            <article class="fighter-insight-card">
+                <span>Forma recente</span>
+                <div class="fighter-form">
+                    <span v-for="(resultado, index) in formaRecente"
+                          :key="'forma-' + index"
+                          :class="resultado === 'V' ? 'fighter-form__item fighter-form__item--win' : 'fighter-form__item fighter-form__item--loss'">
+                        {{ resultado }}
+                    </span>
+                    <small v-if="!formaRecente.length">Sem partidas recentes</small>
+                </div>
+            </article>
+            <article class="fighter-insight-card">
+                <span>Melhor rival</span>
+                <strong>{{ melhorRival ? melhorRival.Nome : 'A definir' }}</strong>
+                <small>{{ melhorRival ? getResumoRival(melhorRival) : 'Sem historico suficiente' }}</small>
+            </article>
+            <article class="fighter-insight-card">
+                <span>Maior desafio</span>
+                <strong>{{ piorRival ? piorRival.Nome : 'A definir' }}</strong>
+                <small>{{ piorRival ? getResumoRival(piorRival) : 'Sem historico suficiente' }}</small>
+            </article>
+        </section>
+
+        <section class="fighter-panel fighter-division-history" aria-label="Histórico de divisões">
+            <div class="fighter-division-history__header">
+                <div>
+                    <span>Carreira competitiva</span>
+                    <h3>Histórico de divisões</h3>
+                </div>
+                <b>{{ Lutador.DivisaoNome || 'Sem divisão' }}</b>
+            </div>
+            <div class="fighter-division-history__list" v-if="Lutador.HistoricoDivisao && Lutador.HistoricoDivisao.length">
+                <article v-for="movimento in Lutador.HistoricoDivisao" :key="'divisao-' + movimento.Id"
+                         :class="'fighter-division-event fighter-division-event--' + String(movimento.Tipo || '').toLowerCase()">
+                    <span class="fighter-division-event__icon">
+                        <i class="fa" :class="movimento.Tipo === 'PROMOCAO' ? 'fa-arrow-up' : (movimento.Tipo === 'REBAIXAMENTO' ? 'fa-arrow-down' : 'fa-flag')"></i>
+                    </span>
+                    <div>
+                        <strong v-if="movimento.Tipo === 'COLOCACAO'">Colocação inicial na {{ movimento.DivisaoNovaNome }}</strong>
+                        <strong v-else>{{ movimento.Tipo === 'PROMOCAO' ? 'Promovido' : 'Rebaixado' }}: {{ movimento.DivisaoAnteriorNome }} → {{ movimento.DivisaoNovaNome }}</strong>
+                        <small>Elo {{ movimento.RatingElo }}<template v-if="movimento.AdversarioNome"> · contra {{ movimento.AdversarioNome }}</template><template v-if="movimento.PartidaId"> · partida {{ movimento.PartidaId }}</template></small>
+                    </div>
+                    <time>{{ movimento.Data }}</time>
+                </article>
+            </div>
+        </section>
+
+        <section class="fighter-panel fighter-elo-history" aria-label="Historico do rating Elo">
+            <div class="fighter-elo-history__header">
+                <div>
+                    <span class="fighter-elo-history__eyebrow">Evolucao competitiva</span>
+                    <h3>Historico de rating Elo</h3>
+                    <p>Cada rosto representa o adversario daquela luta.</p>
+                </div>
+                <div class="fighter-elo-history__summary" v-if="historicoRatingElo.length">
+                    <div>
+                        <span>Maior</span>
+                        <strong>{{ resumoHistoricoElo.maior }}</strong>
+                    </div>
+                    <div>
+                        <span>Menor</span>
+                        <strong>{{ resumoHistoricoElo.menor }}</strong>
+                    </div>
+                    <div>
+                        <span>Saldo</span>
+                        <strong :class="resumoHistoricoElo.variacao >= 0 ? 'is-positive' : 'is-negative'">
+                            {{ formatarVariacaoElo(resumoHistoricoElo.variacao) }}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fighter-elo-chart" v-if="historicoRatingElo.length">
+                <div class="fighter-elo-chart__viewport">
+                    <svg :viewBox="'0 0 ' + configuracaoGraficoElo.largura + ' ' + configuracaoGraficoElo.altura"
+                         :style="{ minWidth: configuracaoGraficoElo.largura + 'px' }"
+                         role="img"
+                         :aria-label="'Grafico com ' + historicoRatingElo.length + ' lutas no historico de Elo de ' + getNome(Lutador)">
+                        <defs>
+                            <linearGradient id="fighterEloGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stop-color="#22d3ee"></stop>
+                                <stop offset="58%" stop-color="#7c3aed"></stop>
+                                <stop offset="100%" stop-color="#f3c750"></stop>
+                            </linearGradient>
+                            <clipPath v-for="ponto in pontosGraficoElo"
+                                      v-if="!ponto.Inicial"
+                                      :key="'elo-clip-' + ponto.PartidaId"
+                                      :id="'elo-portrait-clip-' + Lutador.Id + '-' + ponto.PartidaId">
+                                <circle :cx="ponto.x" :cy="ponto.y" r="18"></circle>
+                            </clipPath>
+                        </defs>
+
+                        <g class="fighter-elo-chart__grid">
+                            <g v-for="linha in linhasGradeElo" :key="'elo-grid-' + linha.rating">
+                                <line :x1="configuracaoGraficoElo.esquerda"
+                                      :x2="configuracaoGraficoElo.largura - configuracaoGraficoElo.direita"
+                                      :y1="linha.y"
+                                      :y2="linha.y"></line>
+                                <text :x="configuracaoGraficoElo.esquerda - 10" :y="linha.y + 4">{{ linha.rating }}</text>
+                            </g>
+                        </g>
+
+                        <polyline class="fighter-elo-chart__line-shadow" :points="eloPolyline"></polyline>
+                        <polyline class="fighter-elo-chart__line" :points="eloPolyline"></polyline>
+
+                        <g v-for="ponto in pontosGraficoElo"
+                           :key="'elo-point-' + ponto.PartidaId"
+                           class="fighter-elo-chart__point"
+                           :class="{
+                               'fighter-elo-chart__point--initial': ponto.Inicial,
+                               'fighter-elo-chart__point--win': !ponto.Inicial && ponto.Vitoria,
+                               'fighter-elo-chart__point--loss': !ponto.Inicial && !ponto.Vitoria,
+                               'is-active': PontoEloAtivo && PontoEloAtivo.PartidaId === ponto.PartidaId
+                           }"
+                           :tabindex="ponto.Inicial ? -1 : 0"
+                           :role="ponto.Inicial ? 'img' : 'button'"
+                           :aria-label="getDescricaoPontoElo(ponto)"
+                           v-on:mouseenter="selecionarPontoElo(ponto)"
+                           v-on:focus="selecionarPontoElo(ponto)"
+                           v-on:keydown.enter.prevent="selecionarPontoElo(ponto)"
+                           v-on:keydown.space.prevent="selecionarPontoElo(ponto)"
+                           v-on:click="selecionarPontoElo(ponto)">
+                            <title>{{ getDescricaoPontoElo(ponto) }}</title>
+                            <text class="fighter-elo-chart__rating" :x="ponto.x" :y="ponto.y - 29">{{ ponto.RatingEloAtual }}</text>
+
+                            <circle v-if="ponto.Inicial" class="fighter-elo-chart__initial-marker" :cx="ponto.x" :cy="ponto.y" r="19"></circle>
+                            <text v-if="ponto.Inicial" class="fighter-elo-chart__initial-copy" :x="ponto.x" :y="ponto.y + 4">ELO</text>
+
+                            <circle v-if="!ponto.Inicial" class="fighter-elo-chart__portrait-ring" :cx="ponto.x" :cy="ponto.y" r="22"></circle>
+                            <image v-if="!ponto.Inicial"
+                                   class="fighter-elo-chart__portrait"
+                                   :href="ponto.AdversarioPortrait || '/Imagens/Undefined.png'"
+                                   :x="ponto.x - 18"
+                                   :y="ponto.y - 18"
+                                   width="36"
+                                   height="36"
+                                   preserveAspectRatio="xMidYMid slice"
+                                   :clip-path="'url(#elo-portrait-clip-' + Lutador.Id + '-' + ponto.PartidaId + ')'"
+                                   v-on:error="usarImagemGraficoIndefinida"></image>
+                            <circle v-if="!ponto.Inicial" class="fighter-elo-chart__result-badge" :cx="ponto.x + 17" :cy="ponto.y - 17" r="10"></circle>
+                            <text v-if="!ponto.Inicial" class="fighter-elo-chart__result-copy" :x="ponto.x + 17" :y="ponto.y - 13">
+                                {{ ponto.Vitoria ? 'V' : 'D' }}
+                            </text>
+                            <text class="fighter-elo-chart__opponent" :x="ponto.x" :y="configuracaoGraficoElo.altura - 38">
+                                {{ ponto.Inicial ? 'Inicio' : encurtarNome(ponto.AdversarioNome, 13) }}
+                            </text>
+                            <text class="fighter-elo-chart__match-number" :x="ponto.x" :y="configuracaoGraficoElo.altura - 20">
+                                {{ ponto.Inicial ? 'Elo base' : 'Luta ' + ponto.PartidaId }}
+                            </text>
+                        </g>
+                    </svg>
+                </div>
+
+                <div class="fighter-elo-focus" v-if="PontoEloAtivo">
+                    <img :src="PontoEloAtivo.AdversarioPortrait || '/Imagens/Undefined.png'"
+                         :alt="PontoEloAtivo.AdversarioNome"
+                         v-on:error="usarImagemIndefinida">
+                    <div class="fighter-elo-focus__copy">
+                        <span>{{ PontoEloAtivo.Vitoria ? 'Vitoria contra' : 'Derrota para' }}</span>
+                        <strong>{{ PontoEloAtivo.AdversarioNome }}</strong>
+                        <small>{{ PontoEloAtivo.DataPartida }} &middot; {{ PontoEloAtivo.PontosLutador == null ? '?' : PontoEloAtivo.PontosLutador }} x {{ PontoEloAtivo.PontosAdversario == null ? '?' : PontoEloAtivo.PontosAdversario }}</small>
+                    </div>
+                    <div class="fighter-elo-focus__opponent-rating">
+                        <span>Elo do adversario</span>
+                        <strong>{{ PontoEloAtivo.RatingEloAdversario }}</strong>
+                    </div>
+                    <div class="fighter-elo-focus__change">
+                        <span>{{ PontoEloAtivo.RatingEloAnterior }} &rarr; {{ PontoEloAtivo.RatingEloAtual }}</span>
+                        <strong :class="PontoEloAtivo.VariacaoRatingElo >= 0 ? 'is-positive' : 'is-negative'">
+                            {{ formatarVariacaoElo(PontoEloAtivo.VariacaoRatingElo) }} Elo
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fighter-empty-state fighter-elo-history__empty" v-else>
+                <i class="fa fa-line-chart" aria-hidden="true"></i>
+                <span>O historico de Elo aparecera depois da primeira luta deste personagem.</span>
+            </div>
+        </section>
+
+        <section class="fighter-conquests" aria-label="Conquistas de universos">
+            <div class="fighter-conquests__header">
+                <div>
+                    <span>Multiverso</span>
+                    <strong>Ins&iacute;gnias de universo</strong>
+                </div>
+                <span v-if="CarregandoConquistas"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Atualizando</span>
+                <b v-else>{{ ConquistasUniverso.length }} conquistada{{ ConquistasUniverso.length === 1 ? '' : 's' }}</b>
+            </div>
+
+            <div class="fighter-conquests__grid" v-if="ConquistasUniverso.length">
+                <article class="fighter-conquest"
+                         v-for="conquista in ConquistasUniverso"
+                         :key="conquista.Universo"
+                         :class="{ 'fighter-conquest--expanded': TorreConquistaAbertaId === conquista.IdTorreOrigem }">
+                    <div class="fighter-conquest__summary">
+                        <div class="fighter-conquest__shield">
+                            <img :src="conquista.Imagem" :alt="conquista.Universo" v-on:error="usarImagemIndefinida">
+                        </div>
+                        <div class="fighter-conquest__copy">
+                            <span>{{ conquista.TrofeuNome }}</span>
+                            <strong>{{ conquista.Universo }}</strong>
+                            <small>Conquistada em {{ formatarDataConquista(conquista) }}</small>
+                        </div>
+                        <div class="fighter-conquest__domain">
+                            <strong>{{ conquista.Dominio.Percentual }}%</strong>
+                            <span>{{ conquista.Dominio.Derrotados }}/{{ conquista.Dominio.TotalAtual }} atuais</span>
+                            <span class="fighter-conquest__mastery" v-if="conquista.Dominio.DominioCompleto">
+                                <i class="fa fa-shield" aria-hidden="true"></i>
+                                Dom&iacute;nio Total
+                            </span>
+                            <button type="button"
+                                    class="fighter-conquest__toggle"
+                                    v-if="conquista.TorreOrigem"
+                                    v-on:click="alternarTorreConquista(conquista)"
+                                    :aria-expanded="TorreConquistaAbertaId === conquista.IdTorreOrigem ? 'true' : 'false'">
+                                <i class="fa" :class="TorreConquistaAbertaId === conquista.IdTorreOrigem ? 'fa-chevron-up' : 'fa-list-ul'" aria-hidden="true"></i>
+                                {{ TorreConquistaAbertaId === conquista.IdTorreOrigem ? 'Ocultar torre' : 'Ver torre' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="fighter-conquest__tower"
+                         v-if="conquista.TorreOrigem && TorreConquistaAbertaId === conquista.IdTorreOrigem">
+                        <div class="fighter-conquest__tower-header">
+                            <div>
+                                <span>Torre da primeira conquista</span>
+                                <strong>{{ conquista.TorreOrigem.TipoNome }} #{{ conquista.TorreOrigem.Id }}</strong>
+                                <small>{{ conquista.TorreOrigem.TotalAndares }} andares &middot; elenco com {{ conquista.QuantidadeElencoNaConquista }} personagens</small>
+                            </div>
+                            <b><i class="fa fa-trophy" aria-hidden="true"></i> Conclu&iacute;da</b>
+                        </div>
+
+                        <div class="fighter-conquest__floors">
+                            <article class="fighter-conquest-floor"
+                                     v-for="andar in conquista.TorreOrigem.Andares"
+                                     :key="'conquista-andar-' + andar.Id">
+                                <div class="fighter-conquest-floor__top">
+                                    <span>{{ andar.Ordem }}&ordm; andar</span>
+                                    <b>{{ andar.Funcao }}</b>
+                                </div>
+                                <div class="fighter-conquest-floor__fighter">
+                                    <img :src="andar.Portrait" :alt="andar.AdversarioNome" v-on:error="usarImagemIndefinida">
+                                    <div>
+                                        <strong>{{ andar.AdversarioNome }}</strong>
+                                        <small>Elo {{ andar.RatingEloNoSorteio }} &middot; N&iacute;vel {{ andar.NivelNoSorteio }}</small>
+                                    </div>
+                                </div>
+                                <span class="fighter-conquest-floor__status">
+                                    <i class="fa fa-check-circle" aria-hidden="true"></i> Vencido
+                                </span>
+                            </article>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="fighter-conquests__empty" v-else-if="!CarregandoConquistas">
+                Este lutador ainda n&atilde;o conquistou uma Torre de Universo.
+            </div>
+        </section>
+
+        <div class="fighter-details__grid">
+            <section class="fighter-panel fighter-panel--rivals">
+                <div class="fighter-panel__header">
+                    <div>
+                        <span>Rivais</span>
+                        <strong>{{ RivaisFiltrados.length }}</strong>
+                    </div>
+                    <div class="fighter-search">
+                        <i class="fa fa-search" aria-hidden="true"></i>
+                        <input type="text" v-model="NomeRival" placeholder="Buscar rival">
+                    </div>
+                </div>
+
+                <div class="fighter-rival-list" v-if="RivaisFiltrados.length">
+                    <article class="fighter-rival-card" v-for="rival in RivaisFiltrados" :key="'rival-' + rival.Id">
+                        <div class="fighter-rival-card__identity">
+                            <img :src="getImagem(rival)" :alt="getNome(rival)">
+                            <div>
+                                <strong>{{ getNome(rival) }}</strong>
+                                <small>Elo {{ rival.RatingElo || 1000 }} &middot; Nivel {{ getNivel(rival) }}</small>
+                            </div>
+                        </div>
+                        <div class="fighter-rival-card__record">
+                            <span>{{ rival.Vitorias || 0 }}V</span>
+                            <span>{{ rival.Derrotas || 0 }}D</span>
+                            <strong>{{ getAproveitamentoRival(rival) }}%</strong>
+                        </div>
+                        <div class="fighter-rival-card__form">
+                            <img :src="partida.IdVencedor == Lutador.Id ? '/Imagens/win.png' : '/Imagens/loss.png'"
+                                 v-for="partida in rival.Partidas"
+                                 :key="'rival-partida-' + rival.Id + '-' + partida.Id">
+                        </div>
+                    </article>
+                </div>
+
+                <div class="fighter-empty-state" v-else>
+                    Nenhum rival encontrado.
+                </div>
+            </section>
+
+            <section class="fighter-panel fighter-panel--matches">
+                <div class="fighter-panel__header">
+                    <div>
+                        <span>Ultimas partidas</span>
+                        <strong>{{ ultimasPartidas.length }}</strong>
+                    </div>
+                </div>
+
+                <div class="fighter-match-list" v-if="ultimasPartidas.length">
+                    <article class="fighter-match-card" v-for="partida in ultimasPartidas" :key="'partida-' + partida.Id">
+                        <div class="fighter-match-card__result" :class="partida.IdVencedor == Lutador.Id ? 'fighter-match-card__result--win' : 'fighter-match-card__result--loss'">
+                            {{ partida.IdVencedor == Lutador.Id ? 'V' : 'D' }}
+                        </div>
+                        <div class="fighter-match-card__body">
+                            <strong>{{ getAdversario(partida) }}</strong>
+                            <span>{{ getPlacarPartida(partida) }}</span>
+                            <small v-if="partida.CenarioNome">
+                                <i class="fa fa-map-marker" aria-hidden="true"></i>
+                                {{ partida.CenarioNome }}
+                            </small>
+                        </div>
+                        <time>{{ formatarDataPartida(partida) }}</time>
+                    </article>
+                </div>
+
+                <div class="fighter-empty-state" v-else>
+                    Nenhuma partida registrada.
+                </div>
+            </section>
+        </div>
+    </div>
+
+        <section id="fighter-panel-historico" class="fighter-change-history" role="tabpanel"
+                 aria-labelledby="fighter-tab-historico" v-show="AbaDetalhes === 'historico'" :aria-busy="CarregandoHistorico ? 'true' : 'false'">
+            <div class="fighter-change-history__heading">
+                <div><h3>Histórico de alterações</h3><p>Acompanhe a evolução deste personagem.</p></div>
+                <button type="button" class="btn btn-default" :disabled="CarregandoHistorico" v-on:click="carregarHistoricoAlteracoes(false, true)"><i class="fa fa-refresh" aria-hidden="true"></i> Verificar alterações</button>
+            </div>
+            <div class="fighter-change-history__toolbar">
+                <label class="fighter-change-history__search" for="history-search"><i class="fa fa-search" aria-hidden="true"></i><span class="sr-only">Buscar no histórico</span><input id="history-search" type="search" v-model="BuscaHistorico" v-on:input="buscarHistorico" placeholder="Buscar autor, atributo ou arquivo…" autocomplete="off"></label>
+                <div class="fighter-change-history__filters" role="group" aria-label="Filtrar histórico por tipo">
+                    <button v-for="categoria in CategoriasHistorico" :key="categoria.id" type="button" :aria-pressed="FiltroHistorico === categoria.id ? 'true' : 'false'" :class="{ 'is-active': FiltroHistorico === categoria.id }" v-on:click="filtrarHistorico(categoria.id)">{{ categoria.nome }}</button>
+                </div>
+            </div>
+            <div class="fighter-change-history__status" role="status" aria-live="polite">
+                <span v-if="CarregandoHistorico"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Carregando histórico…</span>
+                <span v-else-if="HistoricoCarregado">{{ HistoricoAlteracoes.length }} de {{ TotalHistorico }} registro{{ TotalHistorico === 1 ? '' : 's' }}<template v-if="TotalHistorico !== TotalGeralHistorico"> · {{ TotalGeralHistorico }} no total</template></span>
+                <span v-if="UltimaConsultaHistorico">Última conferência: {{ UltimaConsultaHistorico }}</span>
+            </div>
+            <section class="fighter-update-research" aria-labelledby="update-research-title">
+                <div class="fighter-update-research__heading">
+                    <div><h3 id="update-research-title">Pesquisa de atualizações</h3><p>Registre quando você pesquisou uma versão nova, patch ou IA para este personagem.</p></div>
+                    <button v-if="!MostrarFormBuscaAtualizacoes" type="button" class="btn btn-default" v-on:click="abrirRegistroBuscaAtualizacoes"><i class="fa fa-calendar-check-o" aria-hidden="true"></i> Registrar busca</button>
+                </div>
+                <div v-if="UltimaBuscaAtualizacoes" class="fighter-update-research__last">
+                    <strong>Última busca: {{ formatarDataBuscaAtualizacoes(UltimaBuscaAtualizacoes.DataBusca) }}</strong>
+                    <span>Registrada por {{ UltimaBuscaAtualizacoes.Responsavel }}</span>
+                    <p v-if="UltimaBuscaAtualizacoes.Observacao">{{ UltimaBuscaAtualizacoes.Observacao }}</p>
+                    <a v-if="fonteBuscaEhLink(UltimaBuscaAtualizacoes.Fonte)" :href="UltimaBuscaAtualizacoes.Fonte" target="_blank" rel="noopener">Abrir fonte consultada</a>
+                    <span v-else-if="UltimaBuscaAtualizacoes.Fonte">Fonte: {{ UltimaBuscaAtualizacoes.Fonte }}</span>
+                </div>
+                <p v-else class="fighter-update-research__none">Nenhuma busca de atualização foi registrada.</p>
+                <form v-if="MostrarFormBuscaAtualizacoes" class="fighter-update-research__form" v-on:submit.prevent="registrarBuscaAtualizacoes">
+                    <label>Data da busca<input type="date" v-model="DataBuscaAtualizacoes" required></label>
+                    <label>Fonte ou link <input type="text" maxlength="1000" v-model="FonteBuscaAtualizacoes" placeholder="Ex.: MFFA, fórum ou URL"></label>
+                    <label>Observação <textarea maxlength="2000" rows="3" v-model="ObservacaoBuscaAtualizacoes" placeholder="O que foi pesquisado ou encontrado?"></textarea></label>
+                    <div class="fighter-update-research__actions"><button type="submit" class="btn btn-primary" :disabled="SalvandoBuscaAtualizacoes"><i class="fa fa-save" aria-hidden="true"></i> {{ SalvandoBuscaAtualizacoes ? 'Salvando…' : 'Salvar registro' }}</button><button type="button" class="btn btn-default" :disabled="SalvandoBuscaAtualizacoes" v-on:click="cancelarRegistroBuscaAtualizacoes">Cancelar</button></div>
+                </form>
+                <p v-if="ErroBuscaAtualizacoes" class="fighter-update-research__error" role="alert">{{ ErroBuscaAtualizacoes }}</p>
+            </section>
+            <details class="fighter-change-history__help"><summary>Como as alterações são registradas?</summary><p>Ao abrir esta aba ou verificar alterações, o sistema confere os arquivos do personagem. Mudanças externas recebem a data em que foram detectadas. O registro inicial mostra o primeiro estado conhecido; não reconstrói alterações anteriores.</p></details>
+            <p v-for="(aviso, index) in AvisosHistorico" :key="'aviso-' + index" class="fighter-change-history__warning">{{ aviso }}</p>
+            <div v-if="ErroHistorico" class="alert alert-danger" role="alert">
+                {{ ErroHistorico }} <button type="button" class="btn btn-default" :disabled="CarregandoHistorico" v-on:click="tentarHistorico">Tentar novamente</button>
+            </div>
+            <div v-if="HistoricoCarregado && !HistoricoAlteracoes.length && !CarregandoHistorico && !ErroHistorico" class="fighter-change-history__empty">
+                <i class="fa fa-history" aria-hidden="true"></i><p>{{ BuscaHistorico || FiltroHistorico !== 'todos' ? 'Nenhum registro corresponde aos filtros.' : 'Nenhuma alteração registrada.' }}</p>
+                <button v-if="BuscaHistorico || FiltroHistorico !== 'todos'" type="button" class="btn btn-default" v-on:click="limparFiltrosHistorico">Limpar filtros</button>
+            </div>
+            <article v-for="evento in HistoricoAlteracoes" :key="evento.Id" class="fighter-change-event" :class="{ 'is-initial': evento.Inicial }">
+                <h4 class="fighter-change-event__heading">
+                    <button type="button" class="fighter-change-event__toggle" :aria-expanded="evento.Aberto ? 'true' : 'false'" :aria-controls="'history-event-' + evento.Id" v-on:click="evento.Aberto = !evento.Aberto">
+                        <span class="fighter-change-event__icon"><i :class="evento.Inicial ? 'fa fa-flag-o' : 'fa fa-history'" aria-hidden="true"></i></span>
+                        <span class="fighter-change-event__label"><strong>{{ evento.Origem }}</strong><span>{{ evento.Resumo }}</span></span>
+                        <span class="fighter-change-event__date">{{ formatarDataHistorico(evento.DataUtc) }}</span>
+                        <i :class="evento.Aberto ? 'fa fa-chevron-up' : 'fa fa-chevron-down'" aria-hidden="true"></i>
+                    </button>
+                </h4>
+                <div v-if="evento.Aberto" :id="'history-event-' + evento.Id">
+                <p class="fighter-change-event__byline">{{ evento.Responsavel }} <span v-if="evento.Inicial">· Estado inicial conhecido</span></p>
+                <div v-if="evento.Dados.length" class="fighter-change-event__table-wrap">
+                    <table class="fighter-change-event__table">
+                        <caption class="sr-only">{{ evento.Origem }}: valores anteriores e atuais</caption>
+                        <thead><tr><th scope="col">Informação</th><th v-if="!evento.Inicial" scope="col">Antes</th><th scope="col">{{ evento.Inicial ? 'Estado inicial' : 'Depois' }}</th></tr></thead>
+                        <tbody><tr v-for="campo in evento.Dados" :key="campo.Campo">
+                            <th scope="row">{{ campo.Campo }}</th>
+                            <td v-if="!evento.Inicial" class="fighter-change-event__before"><a v-if="campo.ImagemAnterior" :href="imagemHistorico(campo.ImagemAnterior)" target="_blank" rel="noopener" :aria-label="'Ampliar ' + campo.Campo + ' anterior'"><img :src="imagemHistorico(campo.ImagemAnterior)" :alt="campo.Campo + ' anterior'" loading="lazy" decoding="async"></a><span>{{ campo.Anterior || 'Não informado' }}</span></td>
+                            <td class="fighter-change-event__after"><a v-if="campo.ImagemAtual" :href="imagemHistorico(campo.ImagemAtual)" target="_blank" rel="noopener" :aria-label="'Ampliar ' + campo.Campo + ' registrado'"><img :src="imagemHistorico(campo.ImagemAtual)" :alt="campo.Campo + ' registrado'" loading="lazy" decoding="async"></a><span>{{ campo.Atual || 'Não informado' }}</span></td>
+                        </tr></tbody>
+                    </table>
+                </div>
+                <div v-if="evento.Arquivos.length" class="fighter-change-event__files">
+                    <button type="button" class="fighter-change-event__files-toggle" :aria-expanded="evento.ArquivosAbertos ? 'true' : 'false'" :aria-controls="'history-files-' + evento.Id" v-on:click="evento.ArquivosAbertos = !evento.ArquivosAbertos"><i class="fa fa-folder-open-o" aria-hidden="true"></i> {{ evento.Arquivos.length }} arquivo{{ evento.Arquivos.length === 1 ? '' : 's' }} {{ evento.Inicial ? 'no registro inicial' : 'com alterações' }} <i :class="evento.ArquivosAbertos ? 'fa fa-chevron-up' : 'fa fa-chevron-down'" aria-hidden="true"></i></button>
+                    <div v-if="evento.ArquivosAbertos" :id="'history-files-' + evento.Id">
+                        <p>Mudanças nos arquivos de golpes, configurações e IA. Uma referência removida não significa que o arquivo foi apagado da pasta.</p>
+                        <div v-for="campo in evento.Arquivos" :key="campo.Campo" class="fighter-change-event__file">
+                            <span class="fighter-change-event__file-state">{{ evento.Inicial ? 'Registrado' : campo.Estado }}</span><strong>{{ campo.Nome }}</strong>
+                            <details><summary>Ver identificações do arquivo</summary><small v-if="!evento.Inicial">Antes: {{ campo.Anterior || 'Não registrado' }}</small><small>{{ evento.Inicial ? 'Registro' : 'Depois' }}: {{ campo.Atual || 'Sem referência' }}</small></details>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </article>
+            <button v-if="HistoricoTemMais" type="button" class="btn btn-default" :disabled="CarregandoHistorico" v-on:click="carregarHistoricoAlteracoes(true)">Carregar registros anteriores</button>
+        </section>
+    </div>
+
+    <div class="modal-footer fighter-details__footer">
+        <button type="button"
+                class="fighter-details__footer-close"
+                data-dismiss="modal"
+                v-on:click.prevent="fecharModalDetalhes">
+            <i class="fa fa-times" aria-hidden="true"></i>
+            Fechar
+        </button>
+    </div>
+</section>
+
+<link rel="stylesheet" href="~/Content/css/Lutador.css?v=20260922-2">
+<script src="~/Content/js/Views/DetalhesLutador/Index.js?v=20260908-history-2"></script>

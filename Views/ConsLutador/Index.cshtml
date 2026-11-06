@@ -1,0 +1,753 @@
+﻿@{
+    ViewBag.Title = "Consultar Lutador";
+    var consLutadorScriptPath = "~/Content/js/Views/ConsLutador/Index.js";
+    var consLutadorScriptVersion = System.IO.File.GetLastWriteTimeUtc(Server.MapPath(consLutadorScriptPath)).Ticks;
+}
+
+<section id="consLutadorApp" class="content" v-cloak>
+    <div class="fighter-page-actions">
+        <button type="button"
+                class="fighter-page-action fighter-page-action--primary"
+                v-on:click.prevent="abrirCadastroPersonagens">
+            <i class="fa fa-user-plus" aria-hidden="true"></i>
+            Adicionar personagens
+        </button>
+        <button type="button"
+                class="fighter-page-action fighter-page-action--tournament"
+                v-on:click.prevent="abrirTestePacotesChars">
+            <i class="fa fa-trophy" aria-hidden="true"></i>
+            Comparar pacotes de chars
+        </button>
+    </div>
+
+    <div class="fighter-roster-toolbar">
+        <div class="fighter-roster-toolbar__summary">
+            <span>Elenco</span>
+            <strong>{{ Lutadores.length }} lutador{{ Lutadores.length === 1 ? '' : 'es' }}</strong>
+        </div>
+
+        <div class="fighter-roster-toolbar__controls">
+            <label class="fighter-page-size">
+                <span>Itens por pagina</span>
+                <select v-model.number="ItensPorPagina" v-on:change="alterarTamanhoPagina">
+                    <option v-for="opcao in OpcoesItensPorPagina" :key="'itens-' + opcao" :value="opcao">
+                        {{ opcao }}
+                    </option>
+                </select>
+            </label>
+
+            <div class="fighter-view-switch" role="group" aria-label="Formato de visualizacao">
+                <button type="button"
+                        :class="{ 'is-active': ModoVisualizacao === 'cards' }"
+                        :aria-pressed="ModoVisualizacao === 'cards' ? 'true' : 'false'"
+                        title="Visualizar como cards"
+                        v-on:click="alterarModoVisualizacao('cards')">
+                    <i class="fa fa-th-large" aria-hidden="true"></i>
+                    Cards
+                </button>
+                <button type="button"
+                        :class="{ 'is-active': ModoVisualizacao === 'tabela' }"
+                        :aria-pressed="ModoVisualizacao === 'tabela' ? 'true' : 'false'"
+                        title="Visualizar como tabela"
+                        v-on:click="alterarModoVisualizacao('tabela')">
+                    <i class="fa fa-list" aria-hidden="true"></i>
+                    Tabela
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="fighter-roster-filters">
+        <div class="fighter-roster-filters__header">
+            <div>
+                <span>Refinar consulta</span>
+                <strong>{{ LutadoresFiltradosOrdenados.length }} resultado{{ LutadoresFiltradosOrdenados.length === 1 ? '' : 's' }}</strong>
+            </div>
+            <button type="button"
+                    class="fighter-filter-clear"
+                    :disabled="!TemFiltrosAtivos"
+                    v-on:click="limparFiltros">
+                <i class="fa fa-eraser" aria-hidden="true"></i>
+                Limpar filtros
+            </button>
+        </div>
+
+        <div class="fighter-roster-filters__grid"
+             :class="{ 'fighter-roster-filters__grid--table': ModoVisualizacao === 'tabela' }">
+            <label class="fighter-filter fighter-filter--search">
+                <span>Buscar</span>
+                <div class="fighter-filter__input-icon">
+                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <input type="search" v-model.trim="FiltroLutadores" placeholder="Nome, autor ou tag">
+                </div>
+            </label>
+
+            <label class="fighter-filter">
+                <span>Universo</span>
+                <select v-model="FiltroUniverso">
+                    <option value="">Todos os universos</option>
+                    <option value="__sem_universo__">Sem universo</option>
+                    <option v-for="universo in UniversosDisponiveisFiltro" :key="'filtro-universo-' + universo" :value="universo">
+                        {{ universo }}
+                    </option>
+                </select>
+            </label>
+
+            <label class="fighter-filter">
+                <span>Autor</span>
+                <select v-model="FiltroAutor">
+                    <option value="">Todos os autores</option>
+                    <option v-for="autor in AutoresDisponiveisFiltro" :key="'filtro-autor-' + autor" :value="autor">
+                        {{ autor }}
+                    </option>
+                </select>
+            </label>
+
+            <label class="fighter-filter">
+                <span>Tag</span>
+                <select v-model.number="FiltroTagId">
+                    <option value="">Todas as tags</option>
+                    <option v-for="tag in Tags" :key="'filtro-tag-' + tag.Id" :value="tag.Id">
+                        {{ tag.Nome }}
+                    </option>
+                </select>
+            </label>
+
+            <label class="fighter-filter">
+                <span>Divisão</span>
+                <select v-model="FiltroDivisao">
+                    <option value="">Todas as divisões</option>
+                    <option value="__sem_divisao__">Sem divisão</option>
+                    <option v-for="divisao in DivisoesDisponiveisFiltro"
+                            :key="'filtro-divisao-' + divisao.Valor"
+                            :value="divisao.Valor">
+                        {{ divisao.Nome }}
+                    </option>
+                </select>
+            </label>
+
+            <div class="fighter-filter fighter-filter--level">
+                <span>Nivel</span>
+                <div>
+                    <input type="number" min="1" v-model.number="NivelMinimo" placeholder="Min" aria-label="Nivel minimo">
+                    <span>ate</span>
+                    <input type="number" min="1" v-model.number="NivelMaximo" placeholder="Max" aria-label="Nivel maximo">
+                </div>
+            </div>
+
+            <label class="fighter-filter fighter-filter--sort" v-if="ModoVisualizacao === 'cards'">
+                <span>Ordenar por</span>
+                <div>
+                    <select v-model="OrdenacaoCampo">
+                        <option value="nome">Nome do lutador</option>
+                        <option value="universo">Universo</option>
+                        <option value="autor">Autor</option>
+                        <option value="tags">Tags</option>
+                        <option value="rating">Rating Elo</option>
+                        <option value="divisao">Divisão</option>
+                        <option value="nivel">Nivel e experiencia</option>
+                        <option value="experiencia">Experiência</option>
+                        <option value="partidas">Partidas</option>
+                    </select>
+                    <button type="button"
+                            :title="OrdenacaoDirecao === 'asc' ? 'Ordem crescente' : 'Ordem decrescente'"
+                            :aria-label="OrdenacaoDirecao === 'asc' ? 'Alterar para ordem decrescente' : 'Alterar para ordem crescente'"
+                            v-on:click="alternarDirecaoOrdenacao">
+                        <i class="fa" :class="OrdenacaoDirecao === 'asc' ? 'fa-sort-amount-asc' : 'fa-sort-amount-desc'" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <div class="cards" v-if="ModoVisualizacao === 'cards' && LutadoresPaginados.length">
+        <div class="card"
+             v-for="lutador in LutadoresPaginados"
+             :key="'card-' + lutador.Id"
+             role="button"
+             tabindex="0"
+             v-on:click.prevent="getDetalhesLutador(lutador)"
+             v-on:keyup.enter="getDetalhesLutador(lutador)">
+            <div class="content">
+                <div class="stand-import-actions" v-on:click.stop>
+                    <button type="button"
+                            class="stand-import-button"
+                            title="Importar stand com paleta ACT"
+                            :disabled="ImportandoStandId !== null"
+                            v-on:click.prevent.stop="importarStand(lutador, true)">
+                        <i class="fa" :class="ImportandoStandId === lutador.Id && ImportandoStandUsaAct && !ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+                    </button>
+                    <button type="button"
+                            class="stand-import-button stand-import-button-canvas"
+                            title="Importar stand mantendo canvas"
+                            :disabled="ImportandoStandId !== null"
+                            v-on:click.prevent.stop="importarStand(lutador, true, true)">
+                        <i class="fa" :class="ImportandoStandId === lutador.Id && ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-arrows-alt'"></i>
+                    </button>
+                    <button type="button"
+                            class="stand-import-button stand-import-button-alt"
+                            title="Importar stand sem paleta ACT"
+                            :disabled="ImportandoStandId !== null"
+                            v-on:click.prevent.stop="importarStand(lutador, false)">
+                        <i class="fa" :class="ImportandoStandId === lutador.Id && !ImportandoStandUsaAct && !ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-tint'"></i>
+                    </button>
+                    <button type="button"
+                            class="stand-import-button edit-button"
+                            title="Editar detalhes do lutador"
+                            :disabled="SalvandoLutador || ExcluindoLutadorId !== null"
+                            v-on:click.prevent.stop="abrirEdicaoLutador(lutador)">
+                        <i class="fa fa-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="stand-import-button portrait-button"
+                            title="Importar portrait 9000,0"
+                            :disabled="ImportandoPortraitId !== null"
+                            v-on:click.prevent.stop="importarPortrait(lutador)">
+                        <i class="fa" :class="ImportandoPortraitId === lutador.Id ? 'fa-spinner fa-spin' : 'fa-user'"></i>
+                    </button>
+                    <button type="button"
+                            class="stand-import-button delete-button"
+                            title="Excluir lutador"
+                            :disabled="ExcluindoLutadorId !== null"
+                            v-on:click.prevent.stop="solicitarExclusaoLutador(lutador)">
+                        <i class="fa" :class="ExcluindoLutadorId === lutador.Id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                    </button>
+                </div>
+                <div class="details">
+                    <div class="card-title-row">
+                        <img class="card-portrait" :src="lutador.Portrait" :alt="'Portrait de ' + lutador.Nome" />
+                        <div class="name">{{lutador.Nome}}</div>
+                    </div>
+                    <div class="fighter-tag-list fighter-tag-list--card" v-if="lutador.Tags && lutador.Tags.length">
+                        <span v-for="tag in lutador.Tags" :key="'card-tag-' + lutador.Id + '-' + tag.Id">{{ tag.Nome }}</span>
+                    </div>
+                </div>
+                <img :src="lutador.Universo" :alt="lutador.UniversoNome || 'Universo nao informado'" style="width:40%;height:100px;object-fit:contain;margin:5px" />
+                <div class="img">
+                    <img :src="lutador.Stand" :alt="'Stand de ' + lutador.Nome" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fighter-table-card" v-else-if="ModoVisualizacao === 'tabela' && LutadoresPaginados.length">
+        <div class="table-responsive">
+            <table class="fighter-table">
+                <thead>
+                    <tr>
+                        <th scope="col" :aria-sort="ariaOrdenacao('nome')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'nome' }"
+                                    :title="tituloOrdenacao('nome', 'lutador')"
+                                    v-on:click="ordenarPor('nome')">
+                                <span>Lutador</span>
+                                <i class="fa" :class="iconeOrdenacao('nome')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" :aria-sort="ariaOrdenacao('universo')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'universo' }"
+                                    :title="tituloOrdenacao('universo', 'universo')"
+                                    v-on:click="ordenarPor('universo')">
+                                <span>Universo</span>
+                                <i class="fa" :class="iconeOrdenacao('universo')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" :aria-sort="ariaOrdenacao('autor')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'autor' }"
+                                    :title="tituloOrdenacao('autor', 'autor')"
+                                    v-on:click="ordenarPor('autor')">
+                                <span>Autor</span>
+                                <i class="fa" :class="iconeOrdenacao('autor')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" :aria-sort="ariaOrdenacao('tags')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'tags' }"
+                                    :title="tituloOrdenacao('tags', 'tags')"
+                                    v-on:click="ordenarPor('tags')">
+                                <span>Tags</span>
+                                <i class="fa" :class="iconeOrdenacao('tags')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" class="fighter-table__number" :aria-sort="ariaOrdenacao('nivel')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'nivel' }"
+                                    :title="tituloOrdenacao('nivel', 'nível')"
+                                    v-on:click="ordenarPor('nivel')">
+                                <span>Nivel</span>
+                                <i class="fa" :class="iconeOrdenacao('nivel')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" class="fighter-table__number" :aria-sort="ariaOrdenacao('experiencia')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'experiencia' }"
+                                    :title="tituloOrdenacao('experiencia', 'experiência')"
+                                    v-on:click="ordenarPor('experiencia')">
+                                <span>Experiencia</span>
+                                <i class="fa" :class="iconeOrdenacao('experiencia')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" class="fighter-table__number" :aria-sort="ariaOrdenacao('rating')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'rating' }"
+                                    :title="tituloOrdenacao('rating', 'Elo')"
+                                    v-on:click="ordenarPor('rating')">
+                                <span>Elo</span>
+                                <i class="fa" :class="iconeOrdenacao('rating')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" :aria-sort="ariaOrdenacao('divisao')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'divisao' }"
+                                    :title="tituloOrdenacao('divisao', 'divisão')"
+                                    v-on:click="ordenarPor('divisao')">
+                                <span>Divisão</span>
+                                <i class="fa" :class="iconeOrdenacao('divisao')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col" class="fighter-table__number" :aria-sort="ariaOrdenacao('partidas')">
+                            <button type="button"
+                                    class="fighter-table__sort"
+                                    :class="{ 'is-active': OrdenacaoCampo === 'partidas' }"
+                                    :title="tituloOrdenacao('partidas', 'partidas')"
+                                    v-on:click="ordenarPor('partidas')">
+                                <span>Partidas</span>
+                                <i class="fa" :class="iconeOrdenacao('partidas')" aria-hidden="true"></i>
+                            </button>
+                        </th>
+                        <th scope="col">Stand</th>
+                        <th scope="col" class="fighter-table__actions-heading">Acoes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="lutador in LutadoresPaginados"
+                        :key="'linha-' + lutador.Id"
+                        tabindex="0"
+                        v-on:click="getDetalhesLutador(lutador)"
+                        v-on:keyup.enter="getDetalhesLutador(lutador)">
+                        <td>
+                            <div class="fighter-table__identity">
+                                <img :src="lutador.Portrait" :alt="'Portrait de ' + lutador.Nome" />
+                                <strong>{{ lutador.Nome }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fighter-table__universe">
+                                <img :src="lutador.Universo" :alt="lutador.UniversoNome || 'Universo nao informado'" />
+                                <span>{{ lutador.UniversoNome || 'Nao informado' }}</span>
+                            </div>
+                        </td>
+                        <td>{{ lutador.Autor || 'Nao informado' }}</td>
+                        <td>
+                            <div class="fighter-tag-list" v-if="lutador.Tags && lutador.Tags.length">
+                                <span v-for="tag in lutador.Tags" :key="'linha-tag-' + lutador.Id + '-' + tag.Id">{{ tag.Nome }}</span>
+                            </div>
+                            <span class="fighter-tag-empty" v-else>Sem tags</span>
+                        </td>
+                        <td class="fighter-table__number">
+                            <span class="fighter-table__level">{{ lutador.Nivel || 1 }} <i class="fa fa-star" aria-hidden="true"></i></span>
+                        </td>
+                        <td class="fighter-table__number">{{ formatarNumero(lutador.Exp) }}</td>
+                        <td class="fighter-table__number"><strong>{{ formatarNumero(lutador.RatingElo || 1000) }}</strong></td>
+                        <td><strong>{{ lutador.DivisaoNome || 'Sem divisão' }}</strong><br><small v-if="lutador.EmColocacao">Partida {{ lutador.PartidasColocacao }}/{{ lutador.TotalPartidasColocacao }}</small><small v-else>Sequência {{ lutador.SequenciaDivisao > 0 ? '+' : '' }}{{ lutador.SequenciaDivisao || 0 }}</small></td>
+                        <td class="fighter-table__number">{{ formatarNumero(lutador.Partidas) }}</td>
+                        <td>
+                            <img class="fighter-table__stand" :src="lutador.Stand" :alt="'Stand de ' + lutador.Nome" />
+                        </td>
+                        <td v-on:click.stop v-on:keyup.stop>
+                            <div class="fighter-table__actions">
+                                <button type="button"
+                                        title="Importar stand com paleta ACT"
+                                        aria-label="Importar stand com paleta ACT"
+                                        :disabled="ImportandoStandId !== null"
+                                        v-on:click.prevent.stop="importarStand(lutador, true)">
+                                    <i class="fa" :class="ImportandoStandId === lutador.Id && ImportandoStandUsaAct && !ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+                                </button>
+                                <button type="button"
+                                        title="Importar stand mantendo canvas"
+                                        aria-label="Importar stand mantendo canvas"
+                                        :disabled="ImportandoStandId !== null"
+                                        v-on:click.prevent.stop="importarStand(lutador, true, true)">
+                                    <i class="fa" :class="ImportandoStandId === lutador.Id && ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-arrows-alt'"></i>
+                                </button>
+                                <button type="button"
+                                        title="Importar stand sem paleta ACT"
+                                        aria-label="Importar stand sem paleta ACT"
+                                        :disabled="ImportandoStandId !== null"
+                                        v-on:click.prevent.stop="importarStand(lutador, false)">
+                                    <i class="fa" :class="ImportandoStandId === lutador.Id && !ImportandoStandUsaAct && !ImportandoStandModoCanvas ? 'fa-spinner fa-spin' : 'fa-tint'"></i>
+                                </button>
+                                <button type="button"
+                                        title="Editar detalhes do lutador"
+                                        aria-label="Editar detalhes do lutador"
+                                        :disabled="SalvandoLutador || ExcluindoLutadorId !== null"
+                                        v-on:click.prevent.stop="abrirEdicaoLutador(lutador)">
+                                    <i class="fa fa-pencil"></i>
+                                </button>
+                                <button type="button"
+                                        title="Importar portrait 9000,0"
+                                        aria-label="Importar portrait 9000,0"
+                                        :disabled="ImportandoPortraitId !== null"
+                                        v-on:click.prevent.stop="importarPortrait(lutador)">
+                                    <i class="fa" :class="ImportandoPortraitId === lutador.Id ? 'fa-spinner fa-spin' : 'fa-user'"></i>
+                                </button>
+                                <button type="button"
+                                        title="Excluir lutador"
+                                        aria-label="Excluir lutador"
+                                        :disabled="ExcluindoLutadorId !== null"
+                                        v-on:click.prevent.stop="solicitarExclusaoLutador(lutador)">
+                                    <i class="fa" :class="ExcluindoLutadorId === lutador.Id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="fighter-empty-state fighter-roster-empty" v-else>
+        {{ TemFiltrosAtivos ? 'Nenhum lutador encontrado com os filtros informados.' : 'Nenhum lutador cadastrado.' }}
+    </div>
+
+    <div class="fighter-pagination" v-if="LutadoresFiltradosOrdenados.length">
+        <p>
+            Exibindo <strong>{{ IndiceInicial }}</strong> a <strong>{{ IndiceFinal }}</strong>
+            de <strong>{{ LutadoresFiltradosOrdenados.length }}</strong> lutadores
+            <span v-if="TemFiltrosAtivos">({{ Lutadores.length }} cadastrados)</span>
+        </p>
+
+        <nav aria-label="Paginacao de lutadores">
+            <button type="button"
+                    title="Pagina anterior"
+                    aria-label="Pagina anterior"
+                    :disabled="PaginaAtual === 1"
+                    v-on:click="irParaPagina(PaginaAtual - 1)">
+                <i class="fa fa-chevron-left" aria-hidden="true"></i>
+            </button>
+
+            <template v-for="(pagina, indice) in PaginasVisiveis">
+                <span v-if="pagina === null" :key="'reticencias-' + indice" class="fighter-pagination__ellipsis">...</span>
+                <button v-else
+                        type="button"
+                        :key="'pagina-' + pagina"
+                        :class="{ 'is-active': pagina === PaginaAtual }"
+                        :aria-current="pagina === PaginaAtual ? 'page' : null"
+                        :aria-label="'Ir para a pagina ' + pagina"
+                        v-on:click="irParaPagina(pagina)">
+                    {{ pagina }}
+                </button>
+            </template>
+
+            <button type="button"
+                    title="Proxima pagina"
+                    aria-label="Proxima pagina"
+                    :disabled="PaginaAtual === TotalPaginas"
+                    v-on:click="irParaPagina(PaginaAtual + 1)">
+                <i class="fa fa-chevron-right" aria-hidden="true"></i>
+            </button>
+        </nav>
+    </div>
+
+    <div id="modal-detalhes" class="modal fade fighter-profile-modal" style="display: none;" data-backdrop="static"
+         tabindex="-1" role="dialog" aria-label="Perfil do lutador" aria-modal="true" aria-hidden="true">
+        <div class="modal-dialog modal-xl fighter-profile-modal__dialog" role="document">
+            <div class="modal-content fighter-profile-modal__content">
+                <div id="conteudoModal" class="fighter-profile-modal__host" aria-live="polite">
+                    <div class="fighter-details-loading">
+                        <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                        Carregando perfil...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @Html.Partial("~/Views/Shared/_EditarLutador.cshtml")
+
+    <div id="modal-cadastrar-personagens" class="modal fade" style="display: none;" data-backdrop="static">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content fighter-register">
+                <div class="modal-header fighter-register__header">
+                    <div>
+                        <span>Chars MUGEN</span>
+                        <h5 class="modal-title">Adicionar personagens</h5>
+                    </div>
+                    <button type="button" class="fighter-register__close" data-dismiss="modal" aria-label="Fechar">
+                        <i class="fa fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="modal-body fighter-register__body">
+                    <div class="fighter-register__controls">
+                        <label>
+                            Universo
+                            <select v-model="NovoPersonagemUniverso">
+                                <option value="">Selecione</option>
+                                <option v-for="universo in Universos" :key="'cad-universo-' + universo.nome" :value="universo.nome">
+                                    {{ universo.nome }}
+                                </option>
+                            </select>
+                        </label>
+                        <label>
+                            Buscar
+                            <input type="text" v-model="FiltroPersonagemCadastro" placeholder="Nome ou pasta">
+                        </label>
+                        <button type="button"
+                                class="fighter-register__refresh"
+                                :disabled="CarregandoPersonagens"
+                                v-on:click.prevent="getPersonagensChars">
+                            <i class="fa" :class="CarregandoPersonagens ? 'fa-spinner fa-spin' : 'fa-refresh'" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="fighter-register__summary">
+                        <strong>{{ PersonagensSelecionados.length }}</strong> selecionados
+                        <span>{{ PersonagensCharsFiltrados.length }} disponiveis</span>
+                    </div>
+
+                    <div class="fighter-register__list" v-if="PersonagensCharsFiltrados.length">
+                        <label class="fighter-register__item"
+                               v-for="personagem in PersonagensCharsFiltrados"
+                               :key="'char-' + personagem.Pasta">
+                            <input type="checkbox" :value="personagem.Pasta" v-model="PersonagensSelecionados">
+                            <span>
+                                <strong>{{ personagem.Nome }}</strong>
+                                <small>{{ personagem.Autor || 'Autor nao informado' }}</small>
+                            </span>
+                            <em>{{ personagem.Pasta }}</em>
+                        </label>
+                    </div>
+
+                    <div class="fighter-empty-state" v-else>
+                        {{ CarregandoPersonagens ? 'Carregando personagens...' : 'Nenhum personagem novo encontrado em chars.' }}
+                    </div>
+                </div>
+                <div class="modal-footer fighter-register__footer">
+                    <button type="button" class="fighter-register__secondary" v-on:click.prevent="selecionarTodosPersonagens">
+                        Selecionar todos
+                    </button>
+                    <button type="button" class="fighter-register__secondary" v-on:click.prevent="limparSelecaoPersonagens">
+                        Limpar
+                    </button>
+                    <button type="button"
+                            class="fighter-register__submit"
+                            :disabled="CadastrandoPersonagens || !PersonagensSelecionados.length"
+                            v-on:click.prevent="cadastrarPersonagensDosChars">
+                        <i class="fa" :class="CadastrandoPersonagens ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
+                        Cadastrar selecionados
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-testar-chars" class="modal fade" style="display: none;" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content fighter-char-test">
+                <div class="modal-header fighter-char-test__header">
+                    <div>
+                        <span>Seletor competitivo</span>
+                        <h5 class="modal-title">Comparar versões do personagem</h5>
+                    </div>
+                    <button type="button"
+                            class="fighter-char-test__close"
+                            data-dismiss="modal"
+                            aria-label="Fechar"
+                            :disabled="CharTestAnalisando || CharTestExecutando || CharTestImportando">
+                        <i class="fa fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body fighter-char-test__body">
+                    <div class="fighter-char-test__notice">
+                        <i class="fa fa-bolt" aria-hidden="true"></i>
+                        <div>
+                            <strong>Teste isolado e acelerado</strong>
+                            <span>Os pacotes lutam entre si com IA. Essas lutas não alteram vitórias, derrotas, experiência ou Elo do elenco.</span>
+                        </div>
+                    </div>
+
+                    <template v-if="!CharTestToken">
+                        <div class="fighter-char-test__setup">
+                            <label class="fighter-char-test__name">
+                                <span>Nome definitivo <strong>*</strong></span>
+                                <input type="text"
+                                       maxlength="80"
+                                       v-model.trim="CharTestNome"
+                                       placeholder="Ex.: Ryu Autêntico"
+                                       :disabled="CharTestAnalisando">
+                                <small>Este mesmo nome será aplicado à pasta, ao arquivo .def, a <code>name</code> e a <code>displayname</code>.</small>
+                            </label>
+
+                            <label class="fighter-char-test__drop">
+                                <input ref="charTestArquivos"
+                                       type="file"
+                                       accept=".zip,.rar,application/zip,application/vnd.rar,application/x-rar-compressed"
+                                       multiple
+                                       :disabled="CharTestAnalisando"
+                                       v-on:change="selecionarPacotesChars">
+                                <i class="fa fa-file-archive-o" aria-hidden="true"></i>
+                                <strong>Selecione de 2 a 6 pacotes .zip ou .rar</strong>
+                                <span>Cada pacote deve conter uma versão completa do personagem. Arquivos grandes são enviados em partes para uma pasta temporária.</span>
+                            </label>
+
+                            <div class="fighter-char-test__files" v-if="CharTestArquivos.length">
+                                <div v-for="(arquivo, indice) in CharTestArquivos" :key="'char-upload-' + indice + '-' + arquivo.name">
+                                    <i class="fa fa-folder-o" aria-hidden="true"></i>
+                                    <span>{{ arquivo.name }}</span>
+                                    <small>{{ formatarTamanhoChar(arquivo.size) }}</small>
+                                </div>
+                            </div>
+                            <div v-if="CharTestAnalisando" class="fighter-char-test__running" aria-live="polite">
+                                <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                                <div class="w-100">
+                                    <strong>{{ CharTestStatus }}</strong>
+                                    <div class="progress mt-2" role="progressbar" :aria-valuenow="CharTestProgresso" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar" :style="{ width: CharTestProgresso + '%' }">{{ CharTestProgresso }}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template v-else-if="!CharTestResultado">
+                        <div class="fighter-char-test__identity">
+                            <span>Identidade final</span>
+                            <strong>{{ CharTestNome }}</strong>
+                            <small>{{ CharTestCandidatos.length }} versões prontas para o todos-contra-todos</small>
+                        </div>
+
+                        <div class="fighter-char-test__candidates">
+                            <article v-for="(candidato, indice) in CharTestCandidatos" :key="'char-candidato-' + candidato.Id">
+                                <div class="fighter-char-test__candidate-number">{{ indice + 1 }}</div>
+                                <div>
+                                    <strong>{{ candidato.Pacote }}</strong>
+                                    <span>{{ candidato.NomeOriginal || 'Nome interno não informado' }}</span>
+                                    <small>{{ candidato.Autor || 'Autor não informado' }}</small>
+                                </div>
+                                <dl>
+                                    <div><dt>.def</dt><dd>{{ candidato.ArquivoDef }}</dd></div>
+                                    <div><dt>Arquivos</dt><dd>{{ candidato.QuantidadeArquivos }}</dd></div>
+                                    <div><dt>Tamanho</dt><dd>{{ formatarTamanhoChar(candidato.Tamanho) }}</dd></div>
+                                </dl>
+                            </article>
+                        </div>
+
+                        <div class="fighter-char-test__running" v-if="CharTestExecutando" aria-live="polite">
+                            <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                            <div>
+                                <strong>As lutas estão acontecendo no IKEMEN GO.</strong>
+                                <span>Até 4 lutas sem som são executadas simultaneamente, uma janela em cada canto da tela e cada uma com seu próprio log.</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template v-else>
+                        <div class="fighter-char-test__recommendation">
+                            <i class="fa fa-trophy" aria-hidden="true"></i>
+                            <div>
+                                <span>{{ CharTestResultado.EmpateNaLideranca ? 'Empate técnico — sugestão pelo desempate' : 'Personagem recomendado' }}</span>
+                                <strong>{{ nomePacoteRecomendado }}</strong>
+                                <small>Você pode escolher qualquer uma das versões abaixo para instalar.</small>
+                            </div>
+                        </div>
+
+                        <div class="fighter-char-test__ranking">
+                            <label v-for="item in CharTestResultado.Ranking"
+                                   :key="'ranking-' + item.CandidatoId"
+                                   :class="{ 'is-selected': CharTestEscolhidoId === item.CandidatoId, 'is-recommended': item.Recomendado }">
+                                <input type="radio"
+                                       name="char-test-escolhido"
+                                       :value="item.CandidatoId"
+                                       v-model="CharTestEscolhidoId"
+                                       :disabled="CharTestImportando">
+                                <span class="fighter-char-test__position">{{ item.Posicao }}º</span>
+                                <span class="fighter-char-test__package">
+                                    <strong>{{ item.Pacote }}</strong>
+                                    <small>{{ item.NomeOriginal || 'Nome interno não informado' }}</small>
+                                </span>
+                                <span class="fighter-char-test__record">
+                                    <strong>{{ item.Vitorias }}</strong>
+                                    <small>vitórias</small>
+                                </span>
+                                <span class="fighter-char-test__record">
+                                    <strong>{{ item.Derrotas }}</strong>
+                                    <small>derrotas</small>
+                                </span>
+                                <span class="fighter-char-test__rounds">
+                                    {{ item.RoundsPro }} × {{ item.RoundsContra }} rounds
+                                </span>
+                                <em v-if="item.Recomendado">Recomendado</em>
+                            </label>
+                        </div>
+
+                        <details class="fighter-char-test__fights">
+                            <summary>Ver resultados das {{ CharTestResultado.Lutas.length }} lutas</summary>
+                            <div v-for="(luta, indice) in CharTestResultado.Lutas" :key="'char-luta-' + indice">
+                                <span>{{ luta.CandidatoCasaPacote }}</span>
+                                <strong>{{ luta.PontosCasa }} × {{ luta.PontosVisitante }}</strong>
+                                <span>{{ luta.CandidatoVisitantePacote }}</span>
+                            </div>
+                        </details>
+
+                        <label class="fighter-char-test__overwrite">
+                            <input type="checkbox" v-model="CharTestSobrescrever" :disabled="CharTestImportando">
+                            <span>Sobrescrever a pasta <strong>{{ CharTestNome }}</strong> se ela já existir em chars</span>
+                        </label>
+                    </template>
+                </div>
+
+                <div class="modal-footer fighter-char-test__footer">
+                    <button type="button"
+                            class="fighter-char-test__secondary"
+                            v-if="CharTestToken"
+                            :disabled="CharTestExecutando || CharTestImportando"
+                            v-on:click.prevent="reiniciarTestePacotesChars">
+                        <i class="fa fa-undo" aria-hidden="true"></i>
+                        Recomeçar
+                    </button>
+                    <button type="button"
+                            class="fighter-char-test__submit"
+                            v-if="!CharTestToken"
+                            :disabled="CharTestAnalisando || !CharTestNome || CharTestArquivos.length < 2"
+                            v-on:click.prevent="analisarPacotesChars">
+                        <i class="fa" :class="CharTestAnalisando ? 'fa-spinner fa-spin' : 'fa-search'" aria-hidden="true"></i>
+                        {{ CharTestAnalisando ? 'Enviando e analisando...' : 'Analisar pacotes' }}
+                    </button>
+                    <button type="button"
+                            class="fighter-char-test__submit"
+                            v-else-if="!CharTestResultado"
+                            :disabled="CharTestExecutando"
+                            v-on:click.prevent="executarTorneioChars">
+                        <i class="fa" :class="CharTestExecutando ? 'fa-spinner fa-spin' : 'fa-play'" aria-hidden="true"></i>
+                        {{ CharTestExecutando ? 'Testando personagens no IKEMEN...' : 'Iniciar torneio no IKEMEN' }}
+                    </button>
+                    <button type="button"
+                            class="fighter-char-test__submit"
+                            v-else
+                            :disabled="CharTestImportando || !CharTestEscolhidoId"
+                            v-on:click.prevent="importarPacoteCharEscolhido">
+                        <i class="fa" :class="CharTestImportando ? 'fa-spinner fa-spin' : 'fa-folder-open'" aria-hidden="true"></i>
+                        {{ CharTestImportando ? 'Instalando...' : 'Instalar versão escolhida' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</section>
+
+<link rel="stylesheet" href="~/Content/css/Lutador.css?v=20260922-3">
+<script src="~/Content/js/Components/LutadorEditor.js?v=20260820-1"></script>
+<script src="@(Url.Content(consLutadorScriptPath) + "?v=" + consLutadorScriptVersion)"></script>

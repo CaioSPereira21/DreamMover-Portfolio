@@ -1,0 +1,486 @@
+﻿@{
+    ViewBag.Title = "Confronto";
+}
+
+@section styles {
+    <link rel="stylesheet" href="~/Content/css/Lutador.css?v=20260922-2">
+    <link rel="stylesheet" href="~/Content/css/Partida.css?v=20260922-2">
+}
+
+<section id="partidaApp" class="content battle-page" v-cloak>
+    <div class="battle-shell">
+        <header class="battle-hero">
+            <div class="battle-hero__copy">
+                <span class="battle-eyebrow"><i class="fa fa-bolt" aria-hidden="true"></i> DreamMover Arena</span>
+                <h1>Monte o próximo <em>confronto</em></h1>
+                <p>Escolha os dois lutadores, confira o equilíbrio por Elo e coloque a batalha em movimento.</p>
+            </div>
+
+            <div class="battle-hero__actions" aria-label="Ações rápidas">
+                <button type="button"
+                        class="battle-button battle-button--light"
+                        v-on:click.prevent="selecaoEquilibrada"
+                        :disabled="PartidaEmAndamento || CarregandoLutadores || ModoAutomatico">
+                    <i class="fa fa-balance-scale" aria-hidden="true"></i>
+                    <span>Seleção equilibrada</span>
+                </button>
+                <button type="button"
+                        class="battle-button battle-button--automatic"
+                        :class="{ 'is-active': ModoAutomatico }"
+                        :aria-pressed="ModoAutomatico ? 'true' : 'false'"
+                        v-on:click.prevent="alternarModoAutomatico"
+                        :disabled="CarregandoLutadores">
+                    <i class="fa" :class="ModoAutomatico ? 'fa-stop-circle' : 'fa-repeat'" aria-hidden="true"></i>
+                    <span>{{ ModoAutomatico ? 'Parar automático · ' + PartidasAutomaticas : 'Modo automático' }}</span>
+                </button>
+                <button type="button"
+                        class="battle-button battle-button--division"
+                        :class="{ 'is-active': ModoDivisoes }"
+                        :aria-pressed="ModoDivisoes ? 'true' : 'false'"
+                        v-on:click.prevent="alternarModoDivisoes"
+                        :disabled="PartidaEmAndamento || ModoAutomatico">
+                    <i class="fa fa-shield" aria-hidden="true"></i>
+                    <span>{{ ModoDivisoes ? 'Divisões ativas' : 'Modo exibição' }}</span>
+                </button>
+                <button type="button"
+                        class="battle-button battle-button--ghost"
+                        v-on:click.prevent="limparSelecao"
+                        :disabled="!totalSelecionados || PartidaEmAndamento || ModoAutomatico">
+                    <i class="fa fa-eraser" aria-hidden="true"></i>
+                    <span>Limpar</span>
+                </button>
+            </div>
+
+            <div class="battle-hero__metrics" aria-label="Resumo da seleção">
+                <div>
+                    <span>Elenco disponível</span>
+                    <strong>{{ Lutadores.length }}</strong>
+                </div>
+                <div>
+                    <span>Escalação</span>
+                    <strong>{{ totalSelecionados }}/2</strong>
+                </div>
+                <div>
+                    <span>Diferença de Elo</span>
+                    <strong>{{ diferencaElo === null ? '—' : diferencaElo }}</strong>
+                </div>
+            </div>
+
+            <span class="battle-hero__mark" aria-hidden="true">VS</span>
+        </header>
+
+        <section class="battle-guide" aria-label="Como iniciar uma partida">
+            <div>
+                <span>01</span>
+                <p><strong>Escolha o P1</strong><small>Defina o lado esquerdo da arena.</small></p>
+            </div>
+            <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+            <div>
+                <span>02</span>
+                <p><strong>Escolha o P2</strong><small>Complete o confronto com o rival.</small></p>
+            </div>
+            <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+            <div>
+                <span>03</span>
+                <p><strong>Inicie a partida</strong><small>O resultado será registrado automaticamente.</small></p>
+            </div>
+        </section>
+
+        <div class="battle-workspace">
+            <main class="battle-arena" aria-labelledby="arenaTitle">
+                <div class="battle-arena__heading">
+                    <div>
+                        <span class="battle-section-label">Confronto atual</span>
+                        <h2 id="arenaTitle">Arena principal</h2>
+                    </div>
+                    <span class="battle-status"
+                          :class="{ 'battle-status--ready': podeIniciarPartida, 'battle-status--running': PartidaEmAndamento }">
+                        <i class="fa" :class="PartidaEmAndamento ? 'fa-circle-o-notch fa-spin' : (podeIniciarPartida ? 'fa-check' : 'fa-clock-o')" aria-hidden="true"></i>
+                        {{ statusSelecao }}
+                    </span>
+                </div>
+
+                <section v-if="ModoDivisoes" class="battle-division-callout"
+                         :class="{ 'battle-division-callout--decisive': DesafioDivisaoAtual }"
+                         aria-live="polite">
+                    <span class="battle-division-callout__icon"><i class="fa" :class="DesafioDivisaoAtual && DesafioDivisaoAtual.Tipo === 'COLOCACAO' ? 'fa-compass' : (DesafioDivisaoAtual ? 'fa-trophy' : 'fa-shield')"></i></span>
+                    <div v-if="DesafioDivisaoAtual">
+                        <template v-if="DesafioDivisaoAtual.Tipo === 'COLOCACAO'">
+                            <strong>Colocação {{ DesafioDivisaoAtual.PartidasColocacao + 1 }}/{{ DesafioDivisaoAtual.TotalPartidasColocacao }}</strong>
+                            <small>{{ DesafioDivisaoAtual.DesafianteNome }} enfrenta {{ DesafioDivisaoAtual.ChefeNome }}, referência da {{ DesafioDivisaoAtual.DivisaoDestinoNome }}.</small>
+                        </template>
+                        <template v-else>
+                            <strong>Luta de {{ DesafioDivisaoAtual.Tipo === 'PROMOCAO' ? 'promoção' : 'rebaixamento' }}</strong>
+                            <small>{{ DesafioDivisaoAtual.DesafianteNome }} enfrenta {{ DesafioDivisaoAtual.ChefeNome }} pela {{ DesafioDivisaoAtual.DivisaoDestinoNome }}.</small>
+                        </template>
+                    </div>
+                    <div v-else>
+                        <strong>Partida de divisão</strong>
+                        <small>O confronto contará para a sequência quando os dois personagens pertencerem à mesma divisão.</small>
+                    </div>
+                </section>
+
+                <section class="battle-stage-picker" aria-label="Seleção do cenário">
+                    <div class="battle-stage-picker__copy">
+                        <span class="battle-stage-picker__icon"><i class="fa fa-map-o" aria-hidden="true"></i></span>
+                        <div>
+                            <strong>Cenário da partida</strong>
+                            <small v-if="!cenarioSelecionado">Sem escolha manual, o DreamMover mantém a seleção aleatória por universo.</small>
+                            <small v-else>{{ cenarioSelecionado.Universo || 'Universo não classificado' }}<template v-if="cenarioSelecionado.QuantidadeCenas"> · {{ cenarioSelecionado.QuantidadeCenas }} cenas</template></small>
+                        </div>
+                    </div>
+                    <label>
+                        <span class="sr-only">Escolher cenário</span>
+                        <select v-model="CenarioSelecionadoId" :disabled="PartidaEmAndamento || CarregandoCenarios">
+                            <option value="">{{ CarregandoCenarios ? 'Carregando cenários...' : 'Seleção automática (recomendado)' }}</option>
+                            <option v-for="cenario in Cenarios" :key="'partida-cenario-' + cenario.Id" :value="cenario.Id">
+                                {{ cenario.Nome }}{{ cenario.QuantidadeCenas ? ' · ' + cenario.QuantidadeCenas + ' cenas' : '' }}
+                            </option>
+                        </select>
+                    </label>
+                    <div v-if="cenarioSelecionado" class="battle-stage-picker__preview">
+                        <img v-if="cenarioSelecionado.Imagem" :src="cenarioSelecionado.Imagem" :alt="cenarioSelecionado.Nome" v-on:error="usarImagemPadrao($event, 'cenario')">
+                        <i v-else class="fa fa-picture-o" aria-hidden="true"></i>
+                    </div>
+                </section>
+
+                <div class="battle-stage">
+                    <article class="battle-fighter battle-fighter--home"
+                             :class="{ 'battle-fighter--empty': !LutadorCasa, 'battle-fighter--target': LadoSelecao === 'casa', 'battle-fighter--locked': LutadorCasaBloqueado }">
+                        <header class="battle-fighter__header">
+                            <span class="battle-player-label"><b>P1</b> Lado esquerdo</span>
+                            <div v-if="LutadorCasa" class="battle-fighter__header-actions">
+                                <button type="button"
+                                        class="battle-icon-button battle-lock-button"
+                                        :class="{ 'is-active': LutadorCasaBloqueado }"
+                                        :title="LutadorCasaBloqueado ? 'Desbloquear P1 para os próximos sorteios' : 'Manter P1 nos próximos sorteios'"
+                                        :aria-label="LutadorCasaBloqueado ? 'Desbloquear lutador do P1' : 'Bloquear lutador do P1'"
+                                        :aria-pressed="LutadorCasaBloqueado ? 'true' : 'false'"
+                                        v-on:click.prevent="alternarBloqueio('casa')">
+                                    <i class="fa" :class="LutadorCasaBloqueado ? 'fa-lock' : 'fa-unlock-alt'" aria-hidden="true"></i>
+                                </button>
+                                <button type="button"
+                                        class="battle-icon-button"
+                                        title="Remover lutador do lado esquerdo"
+                                        aria-label="Remover lutador do lado esquerdo"
+                                        v-on:click.prevent="removerLutador('casa')"
+                                        :disabled="PartidaEmAndamento || LutadorCasaBloqueado || ModoAutomatico">
+                                    <i class="fa fa-times" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </header>
+
+                        <template v-if="LutadorCasa">
+                            <div class="battle-fighter__info">
+                                <div class="battle-fighter__identity">
+                                    <img :src="LutadorCasa.Portrait" :alt="LutadorCasa.Nome" v-on:error="usarImagemPadrao($event, 'lutador')">
+                                    <div>
+                                        <span>{{ LutadorCasa.UniversoNome || 'Universo desconhecido' }}</span>
+                                        <h3>{{ LutadorCasa.Nome }}</h3>
+                                    </div>
+                                </div>
+
+                                <div class="battle-fighter__stats">
+                                    <span><small>Elo</small><strong>{{ LutadorCasa.RatingElo || 1000 }}</strong></span>
+                                    <span><small>Nível</small><strong>{{ LutadorCasa.Nivel || 1 }}</strong></span>
+                                    <span><small>Divisão</small><strong>{{ LutadorCasa.DivisaoNome || '—' }}</strong></span>
+                                    <span v-if="LutadorCasa.EmColocacao"><small>Colocação</small><strong>{{ LutadorCasa.PartidasColocacao }}/{{ LutadorCasa.TotalPartidasColocacao }}</strong></span>
+                                    <span v-else><small>Sequência</small><strong>{{ LutadorCasa.SequenciaDivisao > 0 ? '+' : '' }}{{ LutadorCasa.SequenciaDivisao || 0 }}</strong></span>
+                                </div>
+
+                            <footer class="battle-fighter__actions">
+                                <button type="button" v-on:click.prevent="abrirModal(LutadorCasa.Id)">
+                                    <i class="fa fa-bar-chart" aria-hidden="true"></i> Ver perfil
+                                </button>
+                                <button type="button" v-on:click.prevent="abrirEdicaoLutador(LutadorCasa)" :disabled="PartidaEmAndamento || ModoAutomatico">
+                                    <i class="fa fa-pencil" aria-hidden="true"></i> Editar
+                                </button>
+                                <button type="button" v-on:click.prevent="ativarLado('casa')" :disabled="PartidaEmAndamento || LutadorCasaBloqueado || ModoAutomatico">
+                                    <i class="fa fa-exchange" aria-hidden="true"></i> Trocar
+                                </button>
+                                </footer>
+                            </div>
+
+                            <div class="battle-fighter__visual">
+                                <img :src="LutadorCasa.Universo" alt="" class="battle-fighter__universe" v-on:error="usarImagemPadrao($event, 'universo')">
+                                <span class="battle-fighter__glow" aria-hidden="true"></span>
+                                <img :src="LutadorCasa.Stand"
+                                     :alt="LutadorCasa.Nome"
+                                     class="battle-fighter__stand"
+                                     v-on:error="usarImagemPadrao($event, 'lutador')">
+                            </div>
+                        </template>
+
+                        <button v-else
+                                type="button"
+                                class="battle-empty-slot"
+                                v-on:click.prevent="ativarLado('casa')">
+                            <span><i class="fa fa-plus" aria-hidden="true"></i></span>
+                            <strong>Escolher lutador</strong>
+                            <small>Selecione um nome no elenco</small>
+                        </button>
+                    </article>
+
+                    <div class="battle-versus">
+                        <span class="battle-versus__round">Duelo individual</span>
+                        <img src="~/Imagens/Versus.png" alt="Versus">
+                        <p>{{ orientacaoSelecao }}</p>
+
+                        <button type="button"
+                                class="battle-start"
+                                v-on:click.prevent="iniciarPartida"
+                                :disabled="!podeIniciarPartida || PartidaEmAndamento || ModoAutomatico">
+                            <i class="fa" :class="PartidaEmAndamento ? 'fa-circle-o-notch fa-spin' : 'fa-play'" aria-hidden="true"></i>
+                            <span>{{ PartidaEmAndamento ? 'Partida em andamento' : (DesafioDivisaoAtual && DesafioDivisaoAtual.Tipo === 'COLOCACAO' ? 'Iniciar colocação' : (DesafioDivisaoAtual ? 'Iniciar luta decisiva' : 'Iniciar partida')) }}</span>
+                        </button>
+
+                        <small v-if="podeIniciarPartida && !PartidaEmAndamento" class="battle-versus__balance">
+                            <i class="fa fa-signal" aria-hidden="true"></i>
+                            {{ descricaoEquilibrio }}
+                        </small>
+
+                        <div v-if="ResultadoRecente" class="battle-result" aria-live="polite">
+                            <span>Último resultado</span>
+                            <strong>{{ ResultadoRecente.PontosCasa }} × {{ ResultadoRecente.PontosVisitante }}</strong>
+                            <small>{{ getNomeVencedorResultado() }} venceu</small>
+                        </div>
+                    </div>
+
+                    <article class="battle-fighter battle-fighter--away"
+                             :class="{ 'battle-fighter--empty': !LutadorVisitante, 'battle-fighter--target': LadoSelecao === 'visitante', 'battle-fighter--locked': LutadorVisitanteBloqueado }">
+                        <header class="battle-fighter__header">
+                            <span class="battle-player-label"><b>P2</b> Lado direito</span>
+                            <div v-if="LutadorVisitante" class="battle-fighter__header-actions">
+                                <button type="button"
+                                        class="battle-icon-button battle-lock-button"
+                                        :class="{ 'is-active': LutadorVisitanteBloqueado }"
+                                        :title="LutadorVisitanteBloqueado ? 'Desbloquear P2 para os próximos sorteios' : 'Manter P2 nos próximos sorteios'"
+                                        :aria-label="LutadorVisitanteBloqueado ? 'Desbloquear lutador do P2' : 'Bloquear lutador do P2'"
+                                        :aria-pressed="LutadorVisitanteBloqueado ? 'true' : 'false'"
+                                        v-on:click.prevent="alternarBloqueio('visitante')">
+                                    <i class="fa" :class="LutadorVisitanteBloqueado ? 'fa-lock' : 'fa-unlock-alt'" aria-hidden="true"></i>
+                                </button>
+                                <button type="button"
+                                        class="battle-icon-button"
+                                        title="Remover lutador do lado direito"
+                                        aria-label="Remover lutador do lado direito"
+                                        v-on:click.prevent="removerLutador('visitante')"
+                                        :disabled="PartidaEmAndamento || LutadorVisitanteBloqueado || ModoAutomatico">
+                                    <i class="fa fa-times" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </header>
+
+                        <template v-if="LutadorVisitante">
+                            <div class="battle-fighter__info">
+                                <div class="battle-fighter__identity">
+                                    <img :src="LutadorVisitante.Portrait" :alt="LutadorVisitante.Nome" v-on:error="usarImagemPadrao($event, 'lutador')">
+                                    <div>
+                                        <span>{{ LutadorVisitante.UniversoNome || 'Universo desconhecido' }}</span>
+                                        <h3>{{ LutadorVisitante.Nome }}</h3>
+                                    </div>
+                                </div>
+
+                                <div class="battle-fighter__stats">
+                                    <span><small>Elo</small><strong>{{ LutadorVisitante.RatingElo || 1000 }}</strong></span>
+                                    <span><small>Nível</small><strong>{{ LutadorVisitante.Nivel || 1 }}</strong></span>
+                                    <span><small>Divisão</small><strong>{{ LutadorVisitante.DivisaoNome || '—' }}</strong></span>
+                                    <span v-if="LutadorVisitante.EmColocacao"><small>Colocação</small><strong>{{ LutadorVisitante.PartidasColocacao }}/{{ LutadorVisitante.TotalPartidasColocacao }}</strong></span>
+                                    <span v-else><small>Sequência</small><strong>{{ LutadorVisitante.SequenciaDivisao > 0 ? '+' : '' }}{{ LutadorVisitante.SequenciaDivisao || 0 }}</strong></span>
+                                </div>
+
+                            <footer class="battle-fighter__actions">
+                                <button type="button" v-on:click.prevent="abrirModal(LutadorVisitante.Id)">
+                                    <i class="fa fa-bar-chart" aria-hidden="true"></i> Ver perfil
+                                </button>
+                                <button type="button" v-on:click.prevent="abrirEdicaoLutador(LutadorVisitante)" :disabled="PartidaEmAndamento || ModoAutomatico">
+                                    <i class="fa fa-pencil" aria-hidden="true"></i> Editar
+                                </button>
+                                <button type="button" v-on:click.prevent="ativarLado('visitante')" :disabled="PartidaEmAndamento || LutadorVisitanteBloqueado || ModoAutomatico">
+                                    <i class="fa fa-exchange" aria-hidden="true"></i> Trocar
+                                </button>
+                                </footer>
+                            </div>
+
+                            <div class="battle-fighter__visual">
+                                <img :src="LutadorVisitante.Universo" alt="" class="battle-fighter__universe" v-on:error="usarImagemPadrao($event, 'universo')">
+                                <span class="battle-fighter__glow" aria-hidden="true"></span>
+                                <img :src="LutadorVisitante.Stand"
+                                     :alt="LutadorVisitante.Nome"
+                                     class="battle-fighter__stand"
+                                     v-on:error="usarImagemPadrao($event, 'lutador')">
+                            </div>
+                        </template>
+
+                        <button v-else
+                                type="button"
+                                class="battle-empty-slot"
+                                v-on:click.prevent="ativarLado('visitante')">
+                            <span><i class="fa fa-plus" aria-hidden="true"></i></span>
+                            <strong>Escolher lutador</strong>
+                            <small>Selecione um nome no elenco</small>
+                        </button>
+                    </article>
+                </div>
+            </main>
+
+            <aside class="battle-roster" aria-labelledby="rosterTitle">
+                <div class="battle-roster__header">
+                    <div>
+                        <span class="battle-section-label">Escalação</span>
+                        <h2 id="rosterTitle">Escolha os lutadores</h2>
+                    </div>
+                    <span class="battle-roster__count">{{ lutadoresFiltrados.length }}</span>
+                </div>
+
+                <label class="battle-search">
+                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <span class="sr-only">Buscar lutador</span>
+                    <input type="search"
+                           v-model.trim="BuscaLutador"
+                           placeholder="Buscar por nome, universo ou tag..."
+                           autocomplete="off">
+                    <button v-if="BuscaLutador"
+                            type="button"
+                            aria-label="Limpar busca"
+                            title="Limpar busca"
+                            v-on:click.prevent="BuscaLutador = ''">
+                        <i class="fa fa-times" aria-hidden="true"></i>
+                    </button>
+                </label>
+
+                <section class="battle-roster-filters" aria-label="Filtros do elenco">
+                    <header class="battle-roster-filters__header">
+                        <span><i class="fa fa-sliders" aria-hidden="true"></i> Filtros</span>
+                        <button type="button"
+                                v-on:click.prevent="limparFiltros"
+                                :disabled="!temFiltrosAtivos">
+                            Limpar tudo
+                        </button>
+                    </header>
+
+                    <div class="battle-roster-filters__grid">
+                        <label>
+                            <span>Universo</span>
+                            <select v-model="UniversoFiltro">
+                                <option value="">Todos</option>
+                                <option v-for="universo in universosDisponiveis"
+                                        :key="'universo-' + universo"
+                                        :value="universo">{{ universo }}</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>Nível</span>
+                            <select v-model="NivelFiltro">
+                                <option value="">Todos</option>
+                                <option v-for="nivel in niveisDisponiveis"
+                                        :key="'nivel-' + nivel"
+                                        :value="String(nivel)">Nível {{ nivel }}</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>Tag</span>
+                            <select v-model="TagFiltro">
+                                <option value="">Todas</option>
+                                <option v-for="tag in tagsDisponiveis"
+                                        :key="'tag-' + tag"
+                                        :value="tag">{{ tag }}</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>Ordenar</span>
+                            <select v-model="OrdenacaoElenco">
+                                <option value="nome">Nome A–Z</option>
+                                <option value="elo-desc">Maior Elo</option>
+                                <option value="elo-asc">Menor Elo</option>
+                                <option value="nivel-desc">Maior nível</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <p class="battle-roster__hint">
+                    <i class="fa fa-hand-pointer-o" aria-hidden="true"></i>
+                    {{ dicaElenco }}
+                </p>
+
+                <div v-if="CarregandoLutadores" class="battle-roster__state" aria-live="polite">
+                    <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                    <strong>Carregando elenco</strong>
+                    <span>Preparando os lutadores da arena.</span>
+                </div>
+
+                <div v-else-if="ErroLutadores" class="battle-roster__state battle-roster__state--error" role="alert">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                    <strong>Não foi possível carregar</strong>
+                    <span>{{ ErroLutadores }}</span>
+                    <button type="button" v-on:click.prevent="getLutadores">Tentar novamente</button>
+                </div>
+
+                <div v-else-if="!lutadoresFiltrados.length" class="battle-roster__state">
+                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <strong>Nenhum lutador encontrado</strong>
+                    <span>Tente buscar por outro nome ou universo.</span>
+                </div>
+
+                <div v-else class="battle-roster__list">
+                    <button type="button"
+                            class="battle-roster-card"
+                            v-for="lutador in lutadoresFiltrados"
+                            :key="lutador.Id"
+                            :class="{
+                                'battle-roster-card--home': ehLutadorCasa(lutador),
+                                'battle-roster-card--away': ehLutadorVisitante(lutador)
+                            }"
+                            v-on:click.prevent="selecionarLutador(lutador)"
+                            :disabled="PartidaEmAndamento || ModoAutomatico"
+                            :aria-label="getRotuloSelecao(lutador)">
+                        <span class="battle-roster-card__portrait">
+                            <img :src="lutador.Portrait"
+                                 :alt="lutador.Nome"
+                                 loading="lazy"
+                                 decoding="async"
+                                 v-on:error="usarImagemPadrao($event, 'lutador')">
+                            <b v-if="ehLutadorCasa(lutador)">P1</b>
+                            <b v-else-if="ehLutadorVisitante(lutador)">P2</b>
+                        </span>
+                        <span class="battle-roster-card__identity">
+                            <strong>{{ lutador.Nome }}</strong>
+                            <small>{{ lutador.UniversoNome || 'Universo desconhecido' }}</small>
+                        </span>
+                        <span class="battle-roster-card__rating">
+                            <strong>{{ lutador.RatingElo || 1000 }}</strong>
+                            <small v-if="lutador.EmColocacao">Em colocação · {{ lutador.PartidasColocacao }}/{{ lutador.TotalPartidasColocacao }}</small>
+                            <small v-else>{{ lutador.DivisaoNome || 'Sem divisão' }} · {{ lutador.SequenciaDivisao > 0 ? '+' : '' }}{{ lutador.SequenciaDivisao || 0 }}</small>
+                        </span>
+                        <i class="fa fa-chevron-right battle-roster-card__arrow" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </aside>
+        </div>
+
+    </div>
+
+    @Html.Partial("~/Views/Shared/_EditarLutador.cshtml")
+
+    <div class="modal fade fighter-profile-modal" id="detalhesModal" tabindex="-1" role="dialog" aria-label="Perfil do lutador" aria-modal="true" aria-hidden="true">
+        <div class="modal-dialog modal-xl fighter-profile-modal__dialog" role="document">
+            <div class="modal-content fighter-profile-modal__content">
+                <div id="conteudoModal" class="fighter-profile-modal__host" aria-live="polite">
+                    <div class="fighter-details-loading">
+                        <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                        Carregando perfil...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section scripts {
+    <script src="~/Content/js/Components/LutadorEditor.js?v=20260820-1"></script>
+    <script src="~/Content/js/Views/Partida/Index.js?v=20260924-1"></script>
+}

@@ -1,0 +1,196 @@
+@model DreamMover.Models.DivisionMovementsViewModel
+
+@{
+    ViewBag.Title = "Movimentações de divisão";
+    string filtroTipo = Model.FiltroTipo ?? string.Empty;
+    int totalMovimentacoes = Model.TotalPromocoes + Model.TotalRebaixamentos;
+}
+
+@section styles {
+    <link rel="stylesheet" href="~/Content/css/Divisoes.css" />
+}
+
+<main class="division-page">
+    <section class="division-hero" aria-labelledby="division-title">
+        <div class="division-hero__copy">
+            <span class="division-eyebrow"><i class="fa fa-exchange" aria-hidden="true"></i> Ranking dinâmico</span>
+            <h1 id="division-title">Movimentações de divisão</h1>
+            <p>Veja quem conquistou uma promoção e quem foi rebaixado nas disputas mais recentes da arena.</p>
+        </div>
+        <div class="division-hero__symbol" aria-hidden="true">
+            <span><i class="fa fa-arrow-up"></i></span>
+            <strong>DIV</strong>
+            <span><i class="fa fa-arrow-down"></i></span>
+        </div>
+    </section>
+
+    <section class="division-summary" aria-label="Resumo das movimentações">
+        <article class="division-summary__card division-summary__card--up">
+            <span class="division-summary__icon"><i class="fa fa-arrow-up" aria-hidden="true"></i></span>
+            <div><small>Subiram de divisão</small><strong>@Model.TotalPromocoes</strong></div>
+        </article>
+        <article class="division-summary__card division-summary__card--down">
+            <span class="division-summary__icon"><i class="fa fa-arrow-down" aria-hidden="true"></i></span>
+            <div><small>Desceram de divisão</small><strong>@Model.TotalRebaixamentos</strong></div>
+        </article>
+        <article class="division-summary__card">
+            <span class="division-summary__icon"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+            <div>
+                <small>Última movimentação</small>
+                <strong class="division-summary__date">
+                    @(Model.UltimaMovimentacao.HasValue ? Model.UltimaMovimentacao.Value.ToString("dd/MM/yyyy") : "—")
+                </strong>
+            </div>
+        </article>
+    </section>
+
+    <form class="division-toolbar" method="get" action="@Url.Action("Index", "Divisoes")">
+        <label class="division-search">
+            <span>Buscar personagem</span>
+            <div>
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="search" name="busca" value="@Model.Busca" placeholder="Nome, universo ou adversário" autocomplete="off" />
+            </div>
+        </label>
+        <label class="division-type">
+            <span>Movimentação</span>
+            <select name="tipo">
+                <option value="" @(string.IsNullOrEmpty(filtroTipo) ? "selected" : string.Empty)>Todas</option>
+                <option value="PROMOCAO" @(filtroTipo == "PROMOCAO" ? "selected" : string.Empty)>Subiram</option>
+                <option value="REBAIXAMENTO" @(filtroTipo == "REBAIXAMENTO" ? "selected" : string.Empty)>Desceram</option>
+            </select>
+        </label>
+        <button class="division-button division-button--primary" type="submit">
+            <i class="fa fa-filter" aria-hidden="true"></i> Filtrar
+        </button>
+        @if (!string.IsNullOrWhiteSpace(Model.Busca) || !string.IsNullOrWhiteSpace(filtroTipo))
+        {
+            <a class="division-button division-button--clear" href="@Url.Action("Index", "Divisoes")">
+                <i class="fa fa-times" aria-hidden="true"></i> Limpar
+            </a>
+        }
+    </form>
+
+    <section class="division-results" aria-labelledby="division-results-title">
+        <header class="division-results__heading">
+            <div>
+                <span>Histórico da arena</span>
+                <h2 id="division-results-title">
+                    @Model.TotalResultados resultado@(Model.TotalResultados == 1 ? string.Empty : "s")
+                </h2>
+            </div>
+            @if (Model.DadosDisponiveis && totalMovimentacoes > 0)
+            {
+                <small>@totalMovimentacoes movimentações registradas</small>
+            }
+        </header>
+
+        @if (!Model.DadosDisponiveis)
+        {
+            <div class="division-empty division-empty--error" role="alert">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                <strong>Não foi possível consultar as divisões.</strong>
+                <p>Verifique a conexão com o banco e tente novamente.</p>
+            </div>
+        }
+        else if (Model.Movimentacoes.Count == 0)
+        {
+            <div class="division-empty">
+                <i class="fa fa-exchange" aria-hidden="true"></i>
+                <strong>Nenhuma movimentação encontrada.</strong>
+                <p>
+                    @(totalMovimentacoes == 0
+                        ? "As promoções e os rebaixamentos aparecerão aqui após as lutas decisivas."
+                        : "Tente alterar ou limpar os filtros da consulta.")
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="division-list">
+                @foreach (var movimento in Model.Movimentacoes)
+                {
+                    <article class="division-movement @(movimento.Promocao ? "division-movement--up" : "division-movement--down")">
+                        <div class="division-movement__direction" aria-hidden="true">
+                            <i class="fa @(movimento.Promocao ? "fa-arrow-up" : "fa-arrow-down")"></i>
+                        </div>
+                        <img class="division-movement__portrait" src="@Url.Content(movimento.Portrait)" alt="Retrato de @movimento.LutadorNome" loading="lazy" />
+                        <div class="division-movement__fighter">
+                            <span>@(movimento.Promocao ? "Promoção" : "Rebaixamento")</span>
+                            <strong>@movimento.LutadorNome</strong>
+                            <small>@movimento.Universo</small>
+                        </div>
+                        <div class="division-movement__route" aria-label="De @movimento.DivisaoAnterior para @movimento.DivisaoNova">
+                            <span><small>Antes</small><strong>@movimento.DivisaoAnterior</strong></span>
+                            <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+                            <span><small>Agora</small><strong>@movimento.DivisaoNova</strong></span>
+                        </div>
+                        <div class="division-movement__details">
+                            <span><i class="fa fa-line-chart" aria-hidden="true"></i> Elo @movimento.RatingElo.ToString("N0")</span>
+                            <span>
+                                <i class="fa fa-fire" aria-hidden="true"></i>
+                                Sequência @(movimento.SequenciaAnterior > 0 ? "+" : string.Empty)@movimento.SequenciaAnterior
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(movimento.AdversarioNome))
+                            {
+                                <span><i class="fa fa-shield" aria-hidden="true"></i> Contra @movimento.AdversarioNome</span>
+                            }
+                        </div>
+                        <time class="division-movement__date" datetime="@movimento.Data.ToString("o")">@movimento.DataTexto</time>
+                    </article>
+                }
+            </div>
+
+            if (Model.TotalPaginas > 1)
+            {
+                int paginaInicial = Math.Max(1, Model.PaginaAtual - 2);
+                int paginaFinal = Math.Min(Model.TotalPaginas, paginaInicial + 4);
+                paginaInicial = Math.Max(1, paginaFinal - 4);
+
+                <nav class="division-pagination" aria-label="Paginação das movimentações">
+                    <span class="division-pagination__summary">
+                        Exibindo @Model.PrimeiroResultado–@Model.UltimoResultado de @Model.TotalResultados
+                    </span>
+                    <div class="division-pagination__controls">
+                        @if (Model.PaginaAtual > 1)
+                        {
+                            <a href="@Url.Action("Index", "Divisoes", new { pagina = Model.PaginaAtual - 1, tipo = Model.FiltroTipo, busca = Model.Busca })"
+                               rel="prev" aria-label="Página anterior">
+                                <i class="fa fa-chevron-left" aria-hidden="true"></i>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="is-disabled" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+                        }
+
+                        @for (int numeroPagina = paginaInicial; numeroPagina <= paginaFinal; numeroPagina++)
+                        {
+                            if (numeroPagina == Model.PaginaAtual)
+                            {
+                                <span class="is-active" aria-current="page">@numeroPagina</span>
+                            }
+                            else
+                            {
+                                <a href="@Url.Action("Index", "Divisoes", new { pagina = numeroPagina, tipo = Model.FiltroTipo, busca = Model.Busca })"
+                                   aria-label="Ir para a página @numeroPagina">@numeroPagina</a>
+                            }
+                        }
+
+                        @if (Model.PaginaAtual < Model.TotalPaginas)
+                        {
+                            <a href="@Url.Action("Index", "Divisoes", new { pagina = Model.PaginaAtual + 1, tipo = Model.FiltroTipo, busca = Model.Busca })"
+                               rel="next" aria-label="Próxima página">
+                                <i class="fa fa-chevron-right" aria-hidden="true"></i>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="is-disabled" aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+                        }
+                    </div>
+                </nav>
+            }
+        }
+    </section>
+</main>

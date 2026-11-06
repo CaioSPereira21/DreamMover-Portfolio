@@ -1,0 +1,115 @@
+.card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px;
+    margin: 10px 0px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.25);
+    transition: all 0.4s ease;
+    height: auto;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+    .card .content {
+        position: relative;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 10;
+    }
+
+    .card .details {
+        width: 100%;
+    }
+
+    .card .content .img {
+        margin-top: 15px;
+    }
+
+        .card .content .img img {
+            width: 100%;
+            height: 140px;
+            margin-bottom: 5px;
+            border-radius: 10px;
+        }
+
+    .card .content .name {
+        font-size: 20px;
+        font-weight: bold;
+        overflow: hidden;
+        text-transform: uppercase;
+        text-overflow: ellipsis;
+        text-wrap: nowrap;
+        color: #000;
+    }
+
+.filter {
+    background: #fff;
+    border-radius: 12px;
+    padding: 5px;
+    margin: 5px 0px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+    transition: all 0.4s ease;
+    height: auto;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+    .filter .content {
+        position: relative;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 10;
+    }
+
+    .filter .details {
+        width: 100%;
+    }
+
+    .filter .content .img {
+        margin-top: 15px;
+    }
+
+        .filter .content .img img {
+            width: 100%;
+            height: 140px;
+            margin-bottom: 5px;
+            border-radius: 10px;
+        }
+
+    .filter .content .name {
+        font-size: 20px;
+        font-weight: bold;
+        overflow: hidden;
+        text-transform: uppercase;
+        text-overflow: ellipsis;
+        text-wrap: nowrap;
+        color: #000;
+    }
+
+.active {
+    background: #1EC28E;
+}
+
+.cardHover:hover {
+    transform: translateY(-10px);
+    cursor: pointer;
+}
+
+.filterHover:hover {
+    transform: translateY(5px);
+    cursor: pointer;
+}

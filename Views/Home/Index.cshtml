@@ -1,0 +1,158 @@
+@model DreamMover.Models.HomeDashboardViewModel
+@using System.Linq
+
+@{
+    ViewBag.Title = "Arena";
+    var lutadorEsquerda = Model.LutadoresDestaque.ElementAt(0);
+    var lutadorDireita = Model.LutadoresDestaque.ElementAt(1);
+}
+
+@section styles {
+    <link rel="stylesheet" href="~/Content/css/Home.css" />
+}
+
+<main class="home-page">
+    <section class="home-hero" aria-labelledby="home-title">
+        <div class="home-hero__grid" aria-hidden="true"></div>
+
+        <div class="home-hero__copy">
+            <div class="home-kicker">
+                <span class="home-kicker__pulse"></span>
+                DreamMover Arena
+            </div>
+            <h1 id="home-title">Toda luta deixa um <span>legado.</span></h1>
+            <p>Monte confrontos, acompanhe a evolu&ccedil;&atilde;o do elenco e descubra quem realmente domina a arena.</p>
+
+            <div class="home-hero__actions">
+                <a class="home-button home-button--primary" href="@Url.Action("Index", "Partida")">
+                    <i class="fa fa-bolt" aria-hidden="true"></i>
+                    Criar confronto
+                </a>
+                <a class="home-button home-button--ghost" href="@Url.Action("Index", "ConsLutador")">
+                    Explorar elenco
+                    <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="home-arena" aria-label="Lutadores em destaque">
+            <article class="home-fighter home-fighter--left">
+                <div class="home-fighter__tag">
+                    <span>ELO @lutadorEsquerda.RatingElo &middot; LV. @lutadorEsquerda.Nivel</span>
+                    <strong>@lutadorEsquerda.Nome</strong>
+                    <small>@lutadorEsquerda.Universo</small>
+                </div>
+                <img src="@Url.Content(lutadorEsquerda.Stand)" alt="@lutadorEsquerda.Nome" />
+            </article>
+
+            <div class="home-versus" aria-hidden="true">
+                <small>Next fight</small>
+                <strong>VS</strong>
+                <span></span>
+            </div>
+
+            <article class="home-fighter home-fighter--right">
+                <div class="home-fighter__tag">
+                    <span>ELO @lutadorDireita.RatingElo &middot; LV. @lutadorDireita.Nivel</span>
+                    <strong>@lutadorDireita.Nome</strong>
+                    <small>@lutadorDireita.Universo</small>
+                </div>
+                <img src="@Url.Content(lutadorDireita.Stand)" alt="@lutadorDireita.Nome" />
+            </article>
+        </div>
+
+        <div class="home-metrics" aria-label="Resumo da arena">
+            <div><span>Lutadores</span><strong>@(Model.DadosDisponiveis ? Model.TotalLutadores.ToString("N0") : "—")</strong></div>
+            <div><span>Batalhas</span><strong>@(Model.DadosDisponiveis ? Model.TotalPartidas.ToString("N0") : "—")</strong></div>
+            <div><span>Universos</span><strong>@(Model.DadosDisponiveis ? Model.TotalUniversos.ToString("N0") : "—")</strong></div>
+            <div><span>Cenários</span><strong>@(Model.DadosDisponiveis ? Model.TotalCenarios.ToString("N0") : "—")</strong></div>
+            <div><span>Maior Elo</span><strong>@(Model.DadosDisponiveis && Model.RatingEloMaximo > 0 ? Model.RatingEloMaximo.ToString("N0") : "—")</strong></div>
+        </div>
+    </section>
+
+    <section class="home-section" aria-labelledby="movimentos-title">
+        <header class="home-section__heading">
+            <div>
+                <span class="home-eyebrow">Comece agora</span>
+                <h2 id="movimentos-title">Qual &eacute; o pr&oacute;ximo movimento?</h2>
+            </div>
+            <p>Da luta casual ao campeonato completo, cada caminho alimenta o hist&oacute;rico e a progress&atilde;o dos personagens.</p>
+        </header>
+
+        <div class="home-paths">
+            <a class="home-path home-path--cyan" href="@Url.Action("Index", "Partida")">
+                <span class="home-path__number">01</span>
+                <span class="home-path__icon"><i class="fa fa-bolt" aria-hidden="true"></i></span>
+                <strong>Confronto r&aacute;pido</strong>
+                <p>Escolha dois lutadores ou deixe a arena sortear os advers&aacute;rios.</p>
+                <span class="home-path__link">Entrar na arena <i class="fa fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+
+            <a class="home-path home-path--violet" href="@Url.Action("Index", "MataMata")">
+                <span class="home-path__number">02</span>
+                <span class="home-path__icon"><i class="fa fa-trophy" aria-hidden="true"></i></span>
+                <strong>Campeonato</strong>
+                <p>Sorteie a chave, acompanhe cada fase e coroe o campe&atilde;o.</p>
+                <span class="home-path__link">Montar torneio <i class="fa fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+
+            <a class="home-path home-path--amber" href="@Url.Action("Index", "ConsLutador")">
+                <span class="home-path__number">03</span>
+                <span class="home-path__icon"><i class="fa fa-users" aria-hidden="true"></i></span>
+                <strong>Elenco e n&iacute;veis</strong>
+                <p>Gerencie personagens, universos, hist&oacute;rico e rivalidades.</p>
+                <span class="home-path__link">Ver lutadores <i class="fa fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+        </div>
+    </section>
+
+    <section class="home-insights" aria-label="Pulso e funcionamento da arena">
+        <article class="home-last-match">
+            <div class="home-panel-heading">
+                <div><span class="home-eyebrow">Pulso da arena</span><h2>&Uacute;ltimo resultado</h2></div>
+                <span class="home-status"><i></i> Sistema ativo</span>
+            </div>
+
+            @if (Model.UltimaPartida != null)
+            {
+                <div class="home-scoreboard">
+                    <div><small>Casa</small><strong>@Model.UltimaPartida.LutadorCasa</strong></div>
+                    <span>@Model.UltimaPartida.PontosCasa</span>
+                    <b>:</b>
+                    <span>@Model.UltimaPartida.PontosVisitante</span>
+                    <div class="home-scoreboard__away"><small>Visitante</small><strong>@Model.UltimaPartida.LutadorVisitante</strong></div>
+                </div>
+                <footer class="home-last-match__footer">
+                    <span><i class="fa fa-trophy" aria-hidden="true"></i> Vencedor: <strong>@Model.UltimaPartida.Vencedor</strong></span>
+                    @if (!string.IsNullOrWhiteSpace(Model.UltimaPartida.Cenario))
+                    {
+                        <span><i class="fa fa-map" aria-hidden="true"></i> Cenário: <strong>@Model.UltimaPartida.Cenario</strong></span>
+                    }
+                    @if (Model.UltimaPartida.Data.HasValue)
+                    {
+                        <time datetime="@Model.UltimaPartida.Data.Value.ToString("yyyy-MM-dd")">@Model.UltimaPartida.Data.Value.ToString("dd MMM yyyy")</time>
+                    }
+                </footer>
+            }
+            else
+            {
+                <div class="home-empty-match">
+                    <span><i class="fa fa-flag-checkered" aria-hidden="true"></i></span>
+                    <div><strong>A pr&oacute;xima hist&oacute;ria come&ccedil;a aqui.</strong><p>Inicie um confronto para registrar o primeiro resultado da arena.</p></div>
+                    <a href="@Url.Action("Index", "Partida")">Criar luta <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                </div>
+            }
+        </article>
+
+        <article class="home-loop">
+            <span class="home-eyebrow">DreamMover loop</span>
+            <h2>Mais que vencer. Evoluir.</h2>
+            <p>Cada resultado realimenta o sistema e ajuda a equilibrar todo o elenco.</p>
+            <ol>
+                <li><span>1</span><div><strong>Selecione</strong><small>Monte o confronto</small></div></li>
+                <li><span>2</span><div><strong>Combata</strong><small>Execute no IKEMEN GO</small></div></li>
+                <li><span>3</span><div><strong>Evolua</strong><small>Atualize n&iacute;vel e experi&ecirc;ncia</small></div></li>
+            </ol>
+        </article>
+    </section>
+</main>

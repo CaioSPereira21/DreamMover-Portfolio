@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="5933124d5c9b4b77af4c418030f33210" Name="Diagram1">
+        <EntityTypeShape EntityType="lutasModel.Lutador" Width="3.625" PointX="8.5" PointY="0.625" IsExpanded="true" />
+        <EntityTypeShape EntityType="lutasModel.Partida" Width="3.625" PointX="3.375" PointY="0.625" IsExpanded="true" />
+        <AssociationConnector Association="lutasModel.FK_Partida_LutadorCasa" />
+        <AssociationConnector Association="lutasModel.FK_Partida_LutadorPerdedor" />
+        <AssociationConnector Association="lutasModel.FK_Partida_LutadorVencedor" />
+        <AssociationConnector Association="lutasModel.FK_Partida_LutadorVisitante" />
+        <AssociationConnector Association="lutasModel.FK_Partida_Cenario" />
+        <EntityTypeShape EntityType="lutasModel.Tag" Width="1.5" PointX="13.375" PointY="0.625" />
+        <EntityTypeShape EntityType="lutasModel.Cenario" Width="2.25" PointX="0.5" PointY="5.25" IsExpanded="true" />
+        <AssociationConnector Association="lutasModel.LutadorTag" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

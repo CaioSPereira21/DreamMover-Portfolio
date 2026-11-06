@@ -1,0 +1,12 @@
+﻿.imageContainer {
+    width: 35px;
+    height: 35px;
+    background-image: url('/Content/css/img/user2-160x160.jpg');
+    border-radius: 50%;
+    color: #3c8dbc;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    background-size: 35px 35px;
+    font-weight: bold;
+}

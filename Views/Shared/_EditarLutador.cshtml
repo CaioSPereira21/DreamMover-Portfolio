@@ -1,0 +1,262 @@
+<div id="modal-editar-lutador" class="modal fade" style="display: none;" data-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content fighter-edit" v-if="LutadorEmEdicao" v-on:submit.prevent="salvarDetalhesLutador">
+            <div class="modal-header fighter-edit__header">
+                <div>
+                    <span>Cadastro do lutador</span>
+                    <h5 class="modal-title">Editar detalhes</h5>
+                </div>
+                <button type="button" class="fighter-edit__close" data-dismiss="modal" aria-label="Fechar" :disabled="SalvandoLutador">
+                    <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="modal-body fighter-edit__body">
+                <div class="fighter-edit__locked-stats">
+                    <span>
+                        Nivel
+                        <strong>{{ LutadorEmEdicao.Nivel }}</strong>
+                    </span>
+                    <span>
+                        Experiencia
+                        <strong>{{ formatarNumero(LutadorEmEdicao.Exp) }}</strong>
+                    </span>
+                    <span>
+                        Rating Elo
+                        <strong>{{ formatarNumero(LutadorEmEdicao.RatingElo || 1000) }}</strong>
+                    </span>
+                    <small>Nivel, experiencia e Elo sao atualizados somente pelas partidas.</small>
+                </div>
+
+                <div class="fighter-edit__fields">
+                    <label>
+                        <span>Nome</span>
+                        <input type="text" maxlength="255" required v-model.trim="LutadorEmEdicao.Nome" placeholder="Nome do lutador">
+                    </label>
+                    <label>
+                        <span>Autor</span>
+                        <input type="text" maxlength="255" v-model.trim="LutadorEmEdicao.Autor" placeholder="Autor do personagem">
+                    </label>
+                    <label class="fighter-edit__universe-field">
+                        <span>Universo</span>
+                        <select required v-model="LutadorEmEdicao.UniversoNome">
+                            <option value="">Selecione</option>
+                            <option v-for="universo in Universos" :key="'edicao-universo-' + universo.nome" :value="universo.nome">
+                                {{ universo.nome }}
+                            </option>
+                        </select>
+                    </label>
+                </div>
+
+                <section class="fighter-edit__author-check"
+                         :class="{ 'fighter-edit__author-check--changed': VerificacaoAutorPasta && VerificacaoAutorPasta.autorAlterado, 'fighter-edit__author-check--confirmed': VerificacaoAutorPasta && VerificacaoAutorPasta.encontrado && VerificacaoAutorPasta.autorInformadoNaPasta && !VerificacaoAutorPasta.autorAlterado }"
+                         aria-live="polite">
+                    <div class="fighter-edit__author-check-icon">
+                        <i class="fa"
+                           :class="VerificandoAutorPasta ? 'fa-spinner fa-spin' : (VerificacaoAutorPasta && VerificacaoAutorPasta.autorAlterado ? 'fa-exclamation-triangle' : 'fa-folder-open')"
+                           aria-hidden="true"></i>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-if="VerificandoAutorPasta">
+                        <strong>Verificando identidade na pasta do personagem</strong>
+                        <small>O autor do DEF esta sendo comparado com o cadastro.</small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-else-if="VerificacaoAutorPasta && !VerificacaoAutorPasta.sucesso">
+                        <strong>Verificacao indisponivel</strong>
+                        <small>{{ VerificacaoAutorPasta.mensagem }}</small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-else-if="VerificacaoAutorPasta && !VerificacaoAutorPasta.encontrado">
+                        <strong>Pasta do personagem nao localizada</strong>
+                        <small>{{ VerificacaoAutorPasta.mensagem }}</small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-else-if="VerificacaoAutorPasta && !VerificacaoAutorPasta.autorInformadoNaPasta">
+                        <strong>Personagem localizado em {{ VerificacaoAutorPasta.pasta }}</strong>
+                        <small>O arquivo {{ VerificacaoAutorPasta.arquivoDef }} nao informa um autor.</small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-else-if="VerificacaoAutorPasta && VerificacaoAutorPasta.autorAlterado">
+                        <strong>Novo autor detectado: {{ VerificacaoAutorPasta.autorDetectado }}</strong>
+                        <small>
+                            Pasta: {{ VerificacaoAutorPasta.pasta }}.
+                            Autor cadastrado: {{ VerificacaoAutorPasta.autorCadastrado || 'nao informado' }}.
+                        </small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-body" v-else-if="VerificacaoAutorPasta">
+                        <strong>Autor confirmado na pasta</strong>
+                        <small>{{ VerificacaoAutorPasta.autorDetectado }} em {{ VerificacaoAutorPasta.pasta }}.</small>
+                    </div>
+
+                    <div class="fighter-edit__author-check-actions" v-if="!VerificandoAutorPasta">
+                        <button type="button"
+                                class="fighter-edit__author-apply"
+                                v-if="VerificacaoAutorPasta && VerificacaoAutorPasta.autorAlterado"
+                                :disabled="autorDetectadoFoiAplicado()"
+                                v-on:click="usarAutorDetectado">
+                            <i class="fa" :class="autorDetectadoFoiAplicado() ? 'fa-check' : 'fa-user'" aria-hidden="true"></i>
+                            {{ autorDetectadoFoiAplicado() ? 'Autor aplicado' : 'Usar novo autor' }}
+                        </button>
+                        <button type="button"
+                                class="fighter-edit__author-refresh"
+                                title="Verificar identidade e atributos novamente"
+                                aria-label="Verificar personagem novamente"
+                                v-on:click="verificarAutorNaPasta">
+                            <i class="fa fa-refresh" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="fighter-edit__security-check"
+                         :class="{
+                             'fighter-edit__security-check--alert': VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.alteradoParaFicarMaisForte,
+                             'fighter-edit__security-check--safe': VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.seguro,
+                             'fighter-edit__security-check--unknown': VerificacaoAutorPasta && (!VerificacaoAutorPasta.seguranca || (!VerificacaoAutorPasta.seguranca.confiavel && !VerificacaoAutorPasta.seguranca.alteradoParaFicarMaisForte))
+                         }"
+                         aria-live="polite">
+                    <header class="fighter-edit__security-header">
+                        <span class="fighter-edit__security-icon">
+                            <i class="fa"
+                               :class="VerificandoAutorPasta
+                                   ? 'fa-spinner fa-spin'
+                                   : (VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.alteradoParaFicarMaisForte
+                                       ? 'fa-exclamation-triangle'
+                                       : (VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.seguro ? 'fa-shield' : 'fa-question-circle'))"
+                               aria-hidden="true"></i>
+                        </span>
+
+                        <div>
+                            <template v-if="VerificandoAutorPasta">
+                                <strong>Verificando atributos de seguranca</strong>
+                                <small>Lendo Life, Power, Attack, Defense, X Scale e Y Scale no CNS principal.</small>
+                            </template>
+                            <template v-else-if="VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.alteradoParaFicarMaisForte">
+                                <strong>Possivel vantagem detectada</strong>
+                                <small>{{ VerificacaoAutorPasta.seguranca.mensagem }} Arquivo: {{ VerificacaoAutorPasta.seguranca.arquivoCns }}.</small>
+                            </template>
+                            <template v-else-if="VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.seguro">
+                                <strong>Atributos dentro dos limites padrao</strong>
+                                <small>{{ VerificacaoAutorPasta.seguranca.mensagem }} Arquivo: {{ VerificacaoAutorPasta.seguranca.arquivoCns }}.</small>
+                            </template>
+                            <template v-else-if="VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca">
+                                <strong>Verificacao de atributos inconclusiva</strong>
+                                <small>{{ VerificacaoAutorPasta.seguranca.mensagem }}</small>
+                            </template>
+                            <template v-else-if="VerificacaoAutorPasta && VerificacaoAutorPasta.sucesso && !VerificacaoAutorPasta.encontrado">
+                                <strong>Atributos nao verificados</strong>
+                                <small>A pasta do personagem precisa ser localizada para ler o CNS.</small>
+                            </template>
+                            <template v-else>
+                                <strong>Verificacao de atributos indisponivel</strong>
+                                <small>Os atributos do CNS principal nao puderam ser verificados.</small>
+                            </template>
+                        </div>
+                    </header>
+
+                    <div class="fighter-edit__security-attributes"
+                         v-if="!VerificandoAutorPasta && VerificacaoAutorPasta && VerificacaoAutorPasta.seguranca && VerificacaoAutorPasta.seguranca.atributos && VerificacaoAutorPasta.seguranca.atributos.length">
+                        <article v-for="atributo in VerificacaoAutorPasta.seguranca.atributos"
+                                 :key="'seguranca-' + atributo.chave"
+                                 :class="{
+                                     'is-alert': atributo.acimaDoPadrao,
+                                     'is-invalid': !atributo.valido,
+                                     'is-default': !atributo.informado
+                            }">
+                            <span>{{ atributo.nome }}</span>
+                            <input v-if="atributo.editavel"
+                                   type="number"
+                                   step="any"
+                                   :aria-label="'Editar ' + atributo.nome"
+                                   :disabled="SalvandoLutador"
+                                   v-model.number="LutadorEmEdicao.AtributosCns[atributo.chave]">
+                            <strong v-else-if="atributo.valido">{{ formatarNumero(atributo.valor) }}</strong>
+                            <strong v-else>{{ atributo.valorOriginal || 'invalido' }}</strong>
+                            <small v-if="atributo.editavel && !atributo.valido">Informe um valor numerico maior que zero</small>
+                            <small v-else-if="atributo.editavel && atributo.acimaDoPadrao">Acima do padrao {{ formatarNumero(atributo.valorPadrao) }}; editavel</small>
+                            <small v-else-if="atributo.editavel && !atributo.possuiPadrao">Editavel no CNS principal; sem limite padrao</small>
+                            <small v-else-if="atributo.editavel && !atributo.informado">Padrao {{ formatarNumero(atributo.valorPadrao) }}; sera gravado somente se alterado</small>
+                            <small v-else-if="atributo.editavel">Editavel no CNS principal</small>
+                            <small v-else-if="atributo.acimaDoPadrao">Acima do limite {{ formatarNumero(atributo.valorPadrao) }}</small>
+                            <small v-else-if="!atributo.valido">Valor nao numerico</small>
+                            <small v-else-if="!atributo.informado">Nao informado; usando padrao</small>
+                            <small v-else>Limite {{ formatarNumero(atributo.valorPadrao) }}</small>
+                        </article>
+                    </div>
+
+                    <p class="fighter-edit__security-note">
+                        Edite Life, Attack, Defense, X Scale e Y Scale. Power permanece somente para consulta. As alteracoes sao salvas nas secoes [Data] e [Size] do CNS principal.
+                    </p>
+                </section>
+
+                <section class="fighter-edit__tags" aria-labelledby="fighter-edit-tags-title">
+                    <div class="fighter-edit__tags-header">
+                        <div>
+                            <span id="fighter-edit-tags-title">Tags</span>
+                            <small>Classifique o lutador com uma ou mais tags.</small>
+                        </div>
+                        <strong>{{ LutadorEmEdicao.TagIds.length }} selecionada{{ LutadorEmEdicao.TagIds.length === 1 ? '' : 's' }}</strong>
+                    </div>
+
+                    <div class="fighter-edit__tag-create">
+                        <input type="text"
+                               maxlength="100"
+                               v-model.trim="NovaTagNome"
+                               placeholder="Nome da nova tag"
+                               aria-label="Nome da nova tag"
+                               v-on:keydown.enter.prevent="cadastrarTagEdicao">
+                        <button type="button"
+                                :disabled="CadastrandoTag || !NovaTagNome"
+                                v-on:click.prevent="cadastrarTagEdicao">
+                            <i class="fa" :class="CadastrandoTag ? 'fa-spinner fa-spin' : 'fa-plus'" aria-hidden="true"></i>
+                            Criar e selecionar
+                        </button>
+                    </div>
+
+                    <div class="fighter-edit__tag-options" v-if="Tags.length">
+                        <label v-for="tag in Tags" :key="'edicao-tag-' + tag.Id">
+                            <input type="checkbox" :value="tag.Id" v-model="LutadorEmEdicao.TagIds">
+                            <span>{{ tag.Nome }}</span>
+                        </label>
+                    </div>
+                    <div class="fighter-edit__tag-empty" v-else>
+                        Nenhuma tag cadastrada. Crie a primeira acima.
+                    </div>
+                </section>
+
+                <div class="fighter-edit__images">
+                    <label class="fighter-edit__image-card">
+                        <span>Portrait</span>
+                        <div class="fighter-edit__preview fighter-edit__preview--portrait">
+                            <img :src="PreviewPortraitEdicao" :alt="'Portrait de ' + LutadorEmEdicao.Nome">
+                        </div>
+                        <strong>{{ ArquivoPortraitEdicao ? ArquivoPortraitEdicao.name : 'Manter imagem atual' }}</strong>
+                        <small>PNG, JPG, GIF ou WEBP - maximo 8 MB</small>
+                        <input ref="portraitArquivoEdicao" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/*" v-on:change="selecionarArquivoEdicao('portrait', $event)">
+                    </label>
+
+                    <label class="fighter-edit__image-card">
+                        <span>Stand</span>
+                        <div class="fighter-edit__preview fighter-edit__preview--stand">
+                            <img :src="PreviewStandEdicao" :alt="'Stand de ' + LutadorEmEdicao.Nome">
+                        </div>
+                        <strong>{{ ArquivoStandEdicao ? ArquivoStandEdicao.name : 'Manter imagem atual' }}</strong>
+                        <small>PNG, JPG, GIF ou WEBP - maximo 8 MB</small>
+                        <input ref="standArquivoEdicao" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/*" v-on:change="selecionarArquivoEdicao('stand', $event)">
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer fighter-edit__footer">
+                <button type="button" class="fighter-edit__cancel" data-dismiss="modal" :disabled="SalvandoLutador">
+                    Cancelar
+                </button>
+                <button type="submit" class="fighter-edit__save" :disabled="SalvandoLutador">
+                    <i class="fa" :class="SalvandoLutador ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
+                    Salvar alteracoes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

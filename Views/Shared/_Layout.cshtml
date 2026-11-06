@@ -1,0 +1,170 @@
+﻿@{
+    string controllerAtual = (ViewContext.RouteData.Values["controller"] as string ?? string.Empty).ToLowerInvariant();
+    bool inicioAtivo = controllerAtual == "home";
+    bool partidaAtiva = controllerAtual == "partida";
+    bool campeonatoAtivo = controllerAtual == "matamata";
+    bool torreAtiva = controllerAtual == "torre";
+    bool lutadoresAtivo = controllerAtual == "conslutador" || controllerAtual == "detalheslutador";
+    bool cenariosAtivo = controllerAtual == "cenario";
+    bool divisoesAtivo = controllerAtual == "divisoes";
+}
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@(string.IsNullOrWhiteSpace(ViewBag.Title as string) ? "DreamMover" : ViewBag.Title + " | DreamMover")</title>
+    <link rel="icon" type="image/png" href="~/Images/Icon-v2.png" />
+
+    <!-- REQUIRED SCRIPTS -->
+    <script src="~/plugins/jquery/jquery.min.js"></script>
+    <script src="~/Content/js/vue.js"></script>
+    <script src="~/Content/js/toastr.min.js"></script>
+    <script src="~/Scripts/bootstrap.bundle.min.js"></script>
+    <script src="~/Scripts/adminlte.js"></script>
+    <script src="~/Content/js/moment.min.js"></script>
+    <script src="~/Content/js/moment-with-locales.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.6/dist/sweetalert2.all.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/vue-multiselect/dist/vue-multiselect.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.6/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/Content/css/adminlte.css">
+    <link rel="stylesheet" href="~/Content/css/libranny.css">
+    <link rel="stylesheet" href="~/Content/css/DreamMoverTheme.css?v=20260812-2">
+    <link href="~/Content/css/toastr.css" rel="stylesheet" />
+    @RenderSection("styles", required: false)
+
+</head>
+<body class="hold-transition sidebar-mini">
+    <div class="wrapper">
+        <nav class="main-header navbar navbar-expand navbar-white navbar-light" aria-label="Barra superior">
+            <ul class="navbar-nav align-items-center">
+                <li class="nav-item">
+                    <a class="nav-link dm-menu-toggle" data-widget="pushmenu" href="#" role="button" aria-label="Expandir ou recolher menu">
+                        <i class="fa fa-bars" aria-hidden="true"></i>
+                    </a>
+                </li>
+                <li class="nav-item dm-page-context" aria-hidden="true">
+                    <span>DreamMover</span>
+                    <strong>@(string.IsNullOrWhiteSpace(ViewBag.Title as string) ? "Arena" : ViewBag.Title)</strong>
+                </li>
+            </ul>
+        </nav>
+
+        <aside class="main-sidebar dm-sidebar elevation-4" aria-label="Menu principal">
+            <a class="brand-link dm-brand" href="@Url.Action("Index", "Home")" aria-label="DreamMover - ir para o início">
+                <img src="~/Images/Icon-v2.png" alt="" class="brand-image dm-brand__mark">
+                <span class="brand-text dm-brand__text">
+                    <strong>DreamMover</strong>
+                    <small>Battle manager</small>
+                </span>
+            </a>
+
+            <div class="sidebar dm-sidebar__body">
+                <nav class="dm-navigation">
+                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+                        <li class="nav-header dm-nav-heading">Visão geral</li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "Home")" class="nav-link dm-nav-link @(inicioAtivo ? "active" : string.Empty)" @(inicioAtivo ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-home" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Início</strong>
+                                    <small>Resumo da arena</small>
+                                </p>
+                            </a>
+                        </li>
+
+                        <li class="nav-header dm-nav-heading">Competição</li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "Partida")" class="nav-link dm-nav-link @(partidaAtiva ? "active" : string.Empty)" @(partidaAtiva ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-bolt" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Confronto</strong>
+                                    <small>Crie uma nova batalha</small>
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "MataMata")" class="nav-link dm-nav-link @(campeonatoAtivo ? "active" : string.Empty)" @(campeonatoAtivo ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-trophy" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Campeonato</strong>
+                                    <small>Organize o torneio</small>
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "Torre")" class="nav-link dm-nav-link @(torreAtiva ? "active" : string.Empty)" @(torreAtiva ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-building" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Torre de Universos</strong>
+                                    <small>Conquiste o multiverso</small>
+                                </p>
+                            </a>
+                        </li>
+
+                        <li class="nav-header dm-nav-heading">Gerenciamento</li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "ConsLutador")" class="nav-link dm-nav-link @(lutadoresAtivo ? "active" : string.Empty)" @(lutadoresAtivo ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-users" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Lutadores</strong>
+                                    <small>Elenco e cadastros</small>
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "Divisoes")" class="nav-link dm-nav-link @(divisoesAtivo ? "active" : string.Empty)" @(divisoesAtivo ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-exchange" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Divisões</strong>
+                                    <small>Promoções e rebaixamentos</small>
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="@Url.Action("Index", "Cenario")" class="nav-link dm-nav-link @(cenariosAtivo ? "active" : string.Empty)" @(cenariosAtivo ? "aria-current=page" : string.Empty)>
+                                <span class="nav-icon dm-nav-icon"><i class="fa fa-map" aria-hidden="true"></i></span>
+                                <p>
+                                    <strong>Cenários</strong>
+                                    <small>Stages e universos</small>
+                                </p>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+
+                <a class="dm-sidebar-cta" href="@Url.Action("Index", "Partida")">
+                    <span class="dm-sidebar-cta__icon"><i class="fa fa-gamepad" aria-hidden="true"></i></span>
+                    <span>
+                        <small>Próxima luta</small>
+                        <strong>Entrar na arena</strong>
+                    </span>
+                    <i class="fa fa-arrow-right dm-sidebar-cta__arrow" aria-hidden="true"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Content Wrapper. Contains page content -->
+        <div class="content-wrapper">
+            @RenderBody()
+        </div>
+        <!-- /.content-wrapper -->
+        <!-- Control Sidebar -->
+        <aside class="control-sidebar control-sidebar-dark">
+            <!-- Control sidebar content goes here -->
+        </aside>
+        <!-- /.control-sidebar -->
+
+    </div>
+
+
+
+    @RenderSection("scripts", required: false)
+</body>
+</html>

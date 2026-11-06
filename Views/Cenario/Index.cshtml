@@ -1,0 +1,536 @@
+﻿@{
+    ViewBag.Title = "Cenários";
+}
+
+<section id="cenarioApp" class="content stage-page" v-cloak>
+    <header class="stage-hero">
+        <div>
+            <span class="stage-eyebrow">Biblioteca do M.U.G.E.N.</span>
+            <h1>Cenários</h1>
+            <p>Organize os arquivos da pasta <strong>stages</strong>, classifique por universo e gere prévias direto do jogo.</p>
+        </div>
+        <div class="stage-hero__actions">
+            <button v-if="!GeracaoAutomatica.Ativa"
+                    type="button"
+                    class="stage-button stage-button--automation"
+                    :disabled="Carregando || TotalSemImagem === 0 || GerandoImagemId !== null"
+                    v-on:click="iniciarGeracaoAutomatica">
+                <i class="fa fa-camera-retro" aria-hidden="true"></i>
+                {{ TotalSemImagem > 0 ? 'Gerar pendentes (' + TotalSemImagem + ')' : 'Imagens em dia' }}
+            </button>
+            <button v-else
+                    type="button"
+                    class="stage-button stage-button--danger"
+                    :disabled="GeracaoAutomatica.CancelarSolicitado"
+                    v-on:click="cancelarGeracaoAutomatica">
+                <i class="fa" :class="GeracaoAutomatica.CancelarSolicitado ? 'fa-spinner fa-spin' : 'fa-stop'" aria-hidden="true"></i>
+                {{ GeracaoAutomatica.CancelarSolicitado ? 'Interrompendo' : 'Parar geração' }}
+            </button>
+            <button type="button" class="stage-button stage-button--ghost" :disabled="Sincronizando || GeracaoAutomatica.Ativa" v-on:click="sincronizar">
+                <i class="fa" :class="Sincronizando ? 'fa-spinner fa-spin' : 'fa-refresh'" aria-hidden="true"></i>
+                {{ Sincronizando ? 'Sincronizando' : 'Sincronizar pasta' }}
+            </button>
+            <button type="button" class="stage-button stage-button--primary" :disabled="GeracaoAutomatica.Ativa" v-on:click="abrirCadastro">
+                <i class="fa fa-plus" aria-hidden="true"></i>
+                Cadastrar cenário
+            </button>
+        </div>
+    </header>
+
+    <section v-if="GeracaoAutomatica.Visivel"
+             class="stage-batch"
+             :class="'stage-batch--' + GeracaoAutomatica.Status"
+             aria-live="polite">
+        <div class="stage-batch__heading">
+            <div class="stage-batch__icon">
+                <i class="fa" :class="GeracaoAutomatica.Ativa ? 'fa-camera fa-pulse' : (GeracaoAutomatica.Status === 'concluida' ? 'fa-check' : 'fa-stop')" aria-hidden="true"></i>
+            </div>
+            <div class="stage-batch__copy">
+                <span>Geração automática</span>
+                <strong>{{ textoGeracaoAutomatica }}</strong>
+                <small v-if="GeracaoAutomatica.Ativa">Mantenha esta página aberta. Cada captura leva alguns segundos.</small>
+                <small v-else>{{ GeracaoAutomatica.Sucessos }} {{ GeracaoAutomatica.Sucessos === 1 ? 'imagem gerada' : 'imagens geradas' }} e {{ GeracaoAutomatica.Falhas }} falha{{ GeracaoAutomatica.Falhas === 1 ? '' : 's' }}.</small>
+            </div>
+            <button v-if="!GeracaoAutomatica.Ativa" type="button" class="stage-batch__close" title="Fechar resumo" v-on:click="fecharResumoGeracao">
+                <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="stage-batch__progress" role="progressbar" :aria-valuenow="ProgressoGeracaoAutomatica" aria-valuemin="0" aria-valuemax="100">
+            <div :style="{ width: ProgressoGeracaoAutomatica + '%' }"></div>
+        </div>
+        <footer>
+            <span>{{ GeracaoAutomatica.Processados }} de {{ GeracaoAutomatica.Total }} processados</span>
+            <span><strong>{{ ProgressoGeracaoAutomatica }}%</strong></span>
+        </footer>
+        <p v-if="GeracaoAutomatica.UltimoErro" class="stage-batch__error">
+            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+            Última falha: {{ GeracaoAutomatica.UltimoErro }}
+        </p>
+    </section>
+
+    <div class="stage-metrics" aria-label="Resumo dos cenários">
+        <article>
+            <span>Total no catálogo</span>
+            <strong>{{ Cenarios.length }}</strong>
+            <small>arquivos identificados</small>
+        </article>
+        <article>
+            <span>Em rotação</span>
+            <strong>{{ TotalAtivos }}</strong>
+            <small>disponíveis nas lutas</small>
+        </article>
+        <article>
+            <span>Classificados</span>
+            <strong>{{ TotalClassificados }}</strong>
+            <small>com universo definido</small>
+        </article>
+        <article>
+            <span>Com imagem</span>
+            <strong>{{ TotalComImagem }}</strong>
+            <small>{{ TotalSemImagem }} prévia{{ TotalSemImagem === 1 ? '' : 's' }} pendente{{ TotalSemImagem === 1 ? '' : 's' }}</small>
+        </article>
+    </div>
+
+    <div class="stage-toolbar">
+        <label class="stage-filter stage-filter--search">
+            <span>Buscar</span>
+            <div>
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="search" v-model.trim="FiltroBusca" placeholder="Nome, arquivo ou autor">
+            </div>
+        </label>
+        <label class="stage-filter">
+            <span>Universo</span>
+            <select v-model="FiltroUniverso">
+                <option value="">Todos</option>
+                <option value="__sem_universo__">Sem classificação</option>
+                <option v-for="universo in UniversosDoCatalogo" :key="'filtro-' + universo" :value="universo">{{ universo }}</option>
+            </select>
+        </label>
+        <label class="stage-filter">
+            <span>Status</span>
+            <select v-model="FiltroStatus">
+                <option value="ativos">Em rotação</option>
+                <option value="todos">Todos</option>
+                <option value="inativos">Fora da rotação</option>
+                <option value="excluidos">Excluídos</option>
+                <option value="arquivo-ausente">Arquivo ausente</option>
+                <option value="sem-imagem">Sem imagem</option>
+            </select>
+        </label>
+        <button type="button" class="stage-clear" :disabled="!TemFiltros" v-on:click="limparFiltros">
+            <i class="fa fa-eraser" aria-hidden="true"></i>
+            Limpar
+        </button>
+    </div>
+
+    <div class="stage-results-heading">
+        <div>
+            <span>Consulta</span>
+            <strong>{{ CenariosFiltrados.length }} resultado{{ CenariosFiltrados.length === 1 ? '' : 's' }}</strong>
+        </div>
+        <small v-if="Carregando"><i class="fa fa-spinner fa-spin"></i> Atualizando catálogo...</small>
+    </div>
+
+    <div v-if="!Carregando && CenariosPaginados.length" class="stage-grid">
+        <article v-for="cenario in CenariosPaginados"
+                 :key="cenario.Id"
+                 class="stage-card"
+                 :class="{ 'stage-card--inactive': !cenario.Ativo || cenario.Excluido }">
+            <div class="stage-card__preview">
+                <img v-if="cenario.Imagem" :src="urlImagem(cenario)" :alt="'Prévia de ' + cenario.Nome" v-on:error="imagemComErro(cenario, $event)">
+                <div v-else class="stage-card__placeholder">
+                    <i class="fa fa-picture-o" aria-hidden="true"></i>
+                    <span>Prévia ainda não gerada</span>
+                </div>
+                <span class="stage-card__status" :class="classeStatus(cenario)">{{ textoStatus(cenario) }}</span>
+                <div v-if="cenario.Universo" class="stage-card__universe">
+                    <img v-if="cenario.UniversoImagem"
+                         :src="cenario.UniversoImagem"
+                         :alt="'Logo de ' + cenario.Universo"
+                         v-on:error="logoUniversoComErro(cenario, $event)">
+                    <span>{{ cenario.Universo }}</span>
+                </div>
+                <div v-else class="stage-card__universe stage-card__universe--empty"><span>Sem universo</span></div>
+            </div>
+
+            <div class="stage-card__body">
+                <h2 :title="cenario.Nome">{{ cenario.Nome }}</h2>
+                <p><i class="fa fa-file-code-o" aria-hidden="true"></i> {{ cenario.ArquivoDef }}</p>
+                <p><i class="fa fa-user-o" aria-hidden="true"></i> {{ cenario.Autor || 'Autor não informado' }}</p>
+                <p v-if="cenario.QuantidadeCenas"><i class="fa fa-film" aria-hidden="true"></i> {{ cenario.QuantidadeCenas }} cenários no roteiro</p>
+            </div>
+
+            <div class="stage-card__actions">
+                <div v-if="!cenario.Excluido && cenario.FaixasMusica && cenario.FaixasMusica.length" class="stage-card__music-list">
+                    <button v-for="faixa in cenario.FaixasMusica"
+                            :key="'faixa-' + cenario.Id + '-' + faixa.Round"
+                            type="button"
+                            class="stage-card__music"
+                            :class="{ 'is-playing': MusicaTocandoId === cenario.Id + ':' + faixa.Round }"
+                            :title="(MusicaTocandoId === cenario.Id + ':' + faixa.Round ? 'Parar' : 'Ouvir') + ' ' + faixa.Arquivo"
+                            v-on:click="alternarMusica(cenario, faixa)">
+                        <i class="fa"
+                           :class="MusicaCarregandoId === cenario.Id + ':' + faixa.Round ? 'fa-spinner fa-spin' : (MusicaTocandoId === cenario.Id + ':' + faixa.Round ? 'fa-stop' : 'fa-volume-up')"
+                           aria-hidden="true"></i>
+                        Round {{ faixa.Round }}
+                    </button>
+                </div>
+                <button v-if="!cenario.Excluido"
+                        type="button"
+                        title="Gerar imagem no IKEMEN"
+                        :disabled="GerandoImagemId !== null || GeracaoAutomatica.Ativa || !cenario.ArquivoEncontrado"
+                        v-on:click="gerarImagem(cenario)">
+                    <i class="fa" :class="GerandoImagemId === cenario.Id ? 'fa-spinner fa-spin' : 'fa-camera'" aria-hidden="true"></i>
+                    {{ GerandoImagemId === cenario.Id ? 'Capturando' : 'Gerar imagem' }}
+                </button>
+                <button v-if="!cenario.Excluido" type="button" title="Editar classificação" :disabled="GeracaoAutomatica.Ativa" v-on:click="abrirEdicao(cenario)">
+                    <i class="fa fa-pencil" aria-hidden="true"></i>
+                    Editar
+                </button>
+                <button type="button"
+                        class="stage-card__def"
+                        title="Ler arquivo .def"
+                        :disabled="LeitorDef.Carregando || !cenario.ArquivoEncontrado"
+                        v-on:click="lerDef(cenario)">
+                    <i class="fa" :class="LeitorDef.Carregando && LeitorDef.CenarioId === cenario.Id ? 'fa-spinner fa-spin' : 'fa-file-text-o'" aria-hidden="true"></i>
+                    Ler .def
+                </button>
+                <button v-if="!cenario.Excluido" type="button" class="is-danger" title="Excluir do DreamMover" :disabled="GeracaoAutomatica.Ativa" v-on:click="excluir(cenario)">
+                    <i class="fa fa-trash" aria-hidden="true"></i>
+                </button>
+                <button v-else type="button" class="is-restore" title="Restaurar cenário" :disabled="GeracaoAutomatica.Ativa" v-on:click="restaurar(cenario)">
+                    <i class="fa fa-undo" aria-hidden="true"></i>
+                    Restaurar
+                </button>
+            </div>
+        </article>
+    </div>
+
+    <div v-if="!Carregando && !CenariosPaginados.length" class="stage-empty">
+        <i class="fa fa-map-o" aria-hidden="true"></i>
+        <strong>Nenhum cenário encontrado</strong>
+        <span>Ajuste os filtros ou sincronize novamente a pasta stages.</span>
+    </div>
+
+    <nav v-if="TotalPaginas > 1" class="stage-pagination" aria-label="Paginação dos cenários">
+        <button type="button" :disabled="PaginaAtual === 1" v-on:click="PaginaAtual--"><i class="fa fa-chevron-left"></i></button>
+        <span>Página <strong>{{ PaginaAtual }}</strong> de {{ TotalPaginas }}</span>
+        <button type="button" :disabled="PaginaAtual === TotalPaginas" v-on:click="PaginaAtual++"><i class="fa fa-chevron-right"></i></button>
+    </nav>
+
+    <div class="modal fade" id="modalCenario" tabindex="-1" role="dialog" aria-labelledby="modalCenarioTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+            <div class="modal-content stage-modal">
+                <div class="modal-header">
+                    <div>
+                        <span>{{ Formulario.Id ? 'Organização do catálogo' : 'Novo conteúdo' }}</span>
+                        <h2 id="modalCenarioTitulo">{{ Formulario.Id ? 'Editar cenário' : 'Cadastrar cenário' }}</h2>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <form v-on:submit.prevent="salvar">
+                    <div class="modal-body">
+                        <div v-if="!Formulario.Id" class="stage-upload">
+                            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                            <div>
+                                <strong>Pacotes de cenários</strong>
+                                <span>Selecione vários arquivos <code>.zip</code> ou <code>.rar</code>. A estrutura de pastas de cada cenário será preservada; nada será copiado antes da sua confirmação.</span>
+                            </div>
+                            <input ref="arquivosCenario" type="file" multiple required
+                                   accept=".zip,.rar,application/zip,application/vnd.rar"
+                                   v-on:change="selecionarArquivos">
+                            <small v-if="ArquivosSelecionados.length">{{ ArquivosSelecionados.length }} pacote{{ ArquivosSelecionados.length === 1 ? '' : 's' }} selecionado{{ ArquivosSelecionados.length === 1 ? '' : 's' }}</small>
+                            <small>Limite total de 128 MB. Pacotes protegidos por senha não são aceitos.</small>
+                        </div>
+
+                        <div v-if="AnalisandoPacotes" class="stage-analysis-loading" aria-live="polite">
+                            <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                            <span>Abrindo os pacotes e identificando os arquivos...</span>
+                        </div>
+
+                        <section v-if="!Formulario.Id && AnaliseToken" class="stage-packages" aria-live="polite">
+                            <div class="stage-packages__intro">
+                                <div>
+                                    <strong>Escolha os arquivos que deseja utilizar</strong>
+                                    <span>Cada pacote ativo precisa ter exatamente um <code>.def</code> e uma música.</span>
+                                </div>
+                                <span>{{ PacotesImportacaoAtivos.length }} de {{ PacotesImportacao.length }} pacote{{ PacotesImportacao.length === 1 ? '' : 's' }} selecionado{{ PacotesImportacaoAtivos.length === 1 ? '' : 's' }}</span>
+                            </div>
+
+                            <article v-for="pacote in PacotesImportacao"
+                                     :key="pacote.Id"
+                                     class="stage-package"
+                                     :class="{ 'is-cancelled': !pacote.Importar, 'has-music-error': pacote.ErroMusica }">
+                                <header>
+                                    <div>
+                                        <i class="fa" :class="/\.rar$/i.test(pacote.Nome) ? 'fa-file-archive-o' : 'fa-file-zip-o'" aria-hidden="true"></i>
+                                        <span>
+                                            <strong>{{ pacote.Nome }}</strong>
+                                            <small>{{ pacote.Arquivos.length }} arquivo{{ pacote.Arquivos.length === 1 ? '' : 's' }} identificado{{ pacote.Arquivos.length === 1 ? '' : 's' }}</small>
+                                        </span>
+                                    </div>
+                                    <button type="button" class="stage-package__toggle" v-on:click="alternarImportacaoPacote(pacote)">
+                                        {{ pacote.Importar ? 'Cancelar este pacote' : 'Retomar pacote' }}
+                                    </button>
+                                </header>
+
+                                <template v-if="pacote.Importar">
+                                    <div class="stage-package__files">
+                                        <label v-for="arquivo in pacote.Arquivos"
+                                               :key="arquivo.Id"
+                                               :class="['is-' + arquivo.Tipo, { 'is-disabled': !arquivo.Suportado }]">
+                                            <input type="checkbox"
+                                                   v-model="arquivo.Selecionado"
+                                                   :disabled="!arquivo.Suportado"
+                                                   v-on:change="selecionarArquivoPacote(pacote, arquivo, $event)">
+                                            <i class="fa" :class="arquivo.Tipo === 'musica' ? 'fa-music' : (arquivo.Tipo === 'def' ? 'fa-file-code-o' : 'fa-file-o')" aria-hidden="true"></i>
+                                            <span>
+                                                <strong>{{ arquivo.Caminho }}</strong>
+                                                <small>{{ arquivo.Suportado ? formatarTamanhoArquivo(arquivo.Tamanho) : 'Tipo não utilizado pelo cadastro' }}</small>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div v-if="arquivosSelecionadosPorTipo(pacote, 'def').length !== 1" class="stage-package__warning">
+                                        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                                        <span>Selecione exatamente um arquivo <code>.def</code> para este cenário.</span>
+                                    </div>
+
+                                    <div v-if="arquivosSelecionadosPorTipo(pacote, 'musica').length === 0"
+                                         class="stage-package__music"
+                                         :class="{ 'is-resolved': pacote.MusicaAdicional }">
+                                        <i class="fa" :class="pacote.MusicaAdicional ? 'fa-check-circle' : 'fa-music'" aria-hidden="true"></i>
+                                        <div>
+                                            <strong>{{ pacote.MusicaAdicional ? 'Música adicionada' : 'Este pacote não tem música selecionada' }}</strong>
+                                            <span v-if="!pacote.MusicaAdicional">Adicione uma música abaixo ou use “Cancelar este pacote” para não concluir sua adição.</span>
+                                            <span v-else>{{ pacote.MusicaAdicional.name }}</span>
+                                            <input type="file"
+                                                   accept=".mp3,.ogg,.wav,.mid,audio/mpeg,audio/ogg,audio/wav,audio/midi"
+                                                   v-on:change="selecionarMusicaAdicional(pacote, $event)">
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div v-else class="stage-package__cancelled">
+                                    <i class="fa fa-ban" aria-hidden="true"></i>
+                                    <span>Este pacote não será adicionado à pasta stages.</span>
+                                </div>
+                            </article>
+                        </section>
+
+                        <div v-if="Formulario.Id || AnaliseToken" class="stage-form-grid">
+                            <label v-if="MostrarMetadadosCadastro">
+                                <span>Nome</span>
+                                <input type="text" maxlength="255" v-model.trim="Formulario.Nome" :placeholder="Formulario.Id ? '' : 'Opcional: será lido do .def'">
+                            </label>
+                            <label>
+                                <span>Universo</span>
+                                <select v-model="Formulario.Universo">
+                                    <option value="">Ainda não classificado</option>
+                                    <option v-for="universo in Universos" :key="'modal-' + universo.nome" :value="universo.nome">{{ universo.nome }}</option>
+                                </select>
+                            </label>
+                            <label v-if="MostrarMetadadosCadastro">
+                                <span>Autor</span>
+                                <input type="text" maxlength="255" v-model.trim="Formulario.Autor" :placeholder="Formulario.Id ? '' : 'Opcional: será lido do .def'">
+                            </label>
+                            <label v-if="Formulario.Id" class="stage-toggle">
+                                <input type="checkbox" v-model="Formulario.Ativo">
+                                <span>
+                                    <strong>Disponível nas lutas</strong>
+                                    <small>Inclui este cenário na seleção aleatória.</small>
+                                </span>
+                            </label>
+                        </div>
+
+                        <section v-if="Formulario.Id" class="stage-scenes" aria-labelledby="stageMusicTitle">
+                            <header>
+                                <div>
+                                    <span>Trilha sonora</span>
+                                    <strong id="stageMusicTitle">Música por round</strong>
+                                    <small>Ouça, troque ou remova faixas. Você também pode enviar uma música nova para qualquer round.</small>
+                                </div>
+                            </header>
+                            <div v-if="Formulario.FaixasMusica.length" class="stage-scenes__list">
+                                <article v-for="(faixa, indice) in Formulario.FaixasMusica" :key="'edicao-faixa-' + faixa.Round" class="stage-scene stage-music-scene">
+                                    <span class="stage-scene__index">{{ indice + 1 }}</span>
+                                    <div class="stage-music-scene__round"><span>Round</span><strong>{{ faixa.Round }}</strong></div>
+                                    <div class="stage-music-scene__file" :title="faixa.Arquivo"><span>Música atual</span><strong>{{ faixa.Arquivo }}</strong></div>
+                                    <button type="button" class="stage-music-scene__listen" :disabled="SalvandoMusica"
+                                            v-on:click="alternarMusica({ Id: Formulario.Id }, faixa)">
+                                        <i class="fa" :class="MusicaTocandoId === Formulario.Id + ':' + faixa.Round ? 'fa-stop' : 'fa-volume-up'" aria-hidden="true"></i>
+                                        {{ MusicaTocandoId === Formulario.Id + ':' + faixa.Round ? 'Parar' : 'Ouvir' }}
+                                    </button>
+                                    <label class="stage-music-scene__swap">
+                                        <span>Faixa do</span>
+                                        <select :value="TrocaMusica[faixa.Round] || ''"
+                                                v-on:change="$set(TrocaMusica, faixa.Round, Number($event.target.value))">
+                                            <option value="">Outro round</option>
+                                            <option v-for="outra in Formulario.FaixasMusica" v-if="outra.Round !== faixa.Round"
+                                                    :key="'troca-' + faixa.Round + '-' + outra.Round" :value="outra.Round">
+                                                Round {{ outra.Round }}
+                                            </option>
+                                        </select>
+                                    </label>
+                                    <div class="stage-music-scene__actions">
+                                        <button type="button" :disabled="SalvandoMusica || !TrocaMusica[faixa.Round]"
+                                                title="Usar a faixa selecionada neste round, mantendo-a no outro"
+                                                v-on:click="usarMusicaDeOutroRound(faixa)">Usar</button>
+                                        <button type="button" :disabled="SalvandoMusica || !TrocaMusica[faixa.Round]"
+                                                title="Inverter as faixas dos dois rounds"
+                                                v-on:click="trocarMusicas(faixa)">Trocar</button>
+                                    </div>
+                                    <button type="button" class="stage-scene__remove" :title="'Remover música do round ' + faixa.Round"
+                                            :disabled="SalvandoMusica" v-on:click="removerMusica(faixa)">
+                                        <i class="fa fa-trash" aria-hidden="true"></i>
+                                    </button>
+                                </article>
+                            </div>
+                            <div v-else class="stage-scenes__state">Nenhuma música encontrada para este cenário.</div>
+                            <div class="stage-scene stage-music-editor">
+                                <span class="stage-scene__index"><i class="fa fa-plus" aria-hidden="true"></i></span>
+                                <label>
+                                    <span>Round</span>
+                                    <input type="number" min="1" max="99" v-model.number="RoundMusica">
+                                </label>
+                                <label>
+                                    <span>Nova música</span>
+                                    <input ref="arquivoNovaMusica" type="file" accept=".mp3,.ogg,.wav,.mid,audio/*" v-on:change="selecionarNovaMusica">
+                                </label>
+                                <button type="button" :disabled="SalvandoMusica || !ArquivoNovaMusica" v-on:click="atualizarMusica">
+                                    <i class="fa" :class="SalvandoMusica ? 'fa-spinner fa-spin' : 'fa-upload'" aria-hidden="true"></i>
+                                    {{ SalvandoMusica ? 'Enviando' : 'Salvar música' }}
+                                </button>
+                                <label v-if="Formulario.FaixasMusica.length">
+                                    <span>Ou faixa existente</span>
+                                    <select v-model.number="RoundMusicaOrigem">
+                                        <option :value="null">Selecione</option>
+                                        <option v-for="faixa in Formulario.FaixasMusica" :key="'faixa-existente-' + faixa.Round"
+                                                :value="faixa.Round">Round {{ faixa.Round }}</option>
+                                    </select>
+                                </label>
+                                <button v-if="Formulario.FaixasMusica.length" type="button" :disabled="SalvandoMusica || !RoundMusicaOrigem"
+                                        v-on:click="usarMusicaNoRound">Usar faixa</button>
+                            </div>
+                            <p class="stage-scenes__ids"><i class="fa fa-info-circle" aria-hidden="true"></i> Remover desvincula a faixa do round sem apagar o arquivo. Um round sem faixa específica pode usar a música padrão do cenário.</p>
+                        </section>
+
+                        <section v-if="Formulario.Id" class="stage-scenes" aria-labelledby="stageScenesTitle">
+                            <header>
+                                <div>
+                                    <span>Roteiro da luta</span>
+                                    <strong id="stageScenesTitle">Cenário por round</strong>
+                                    <small>Escolha cenários já cadastrados para formar a sequência da disputa.</small>
+                                </div>
+                                <button type="button" v-on:click="adicionarCena" :disabled="Formulario.Cenas.length >= 10">
+                                    <i class="fa fa-plus" aria-hidden="true"></i>
+                                    {{ Formulario.Cenas.length ? 'Adicionar cenário' : 'Criar roteiro' }}
+                                </button>
+                            </header>
+
+                            <div v-if="CarregandoCenas" class="stage-scenes__state">
+                                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Carregando o catálogo de cenários...
+                            </div>
+
+                            <div v-else-if="!Formulario.Cenas.length" class="stage-scenes__state">
+                                <i class="fa fa-film" aria-hidden="true"></i>
+                                Sem roteiro: este cenário será usado normalmente em todos os rounds.
+                            </div>
+
+                            <div v-else class="stage-scenes__list">
+                                <article v-for="(cena, indice) in Formulario.Cenas" :key="'cena-' + indice" class="stage-scene">
+                                    <span class="stage-scene__index">{{ indice + 1 }}</span>
+                                    <label>
+                                        <span>Round inicial</span>
+                                        <input type="number" min="1" max="99" v-model.number="cena.Round">
+                                    </label>
+                                    <label class="stage-scene__name">
+                                        <span>Cenário do catálogo</span>
+                                        <select v-model="cena.CenarioNome">
+                                            <option value="">Selecione um cenário</option>
+                                            <option v-for="opcao in CenariosDisponiveisRoteiro"
+                                                    :key="'roteiro-cenario-' + opcao.Id"
+                                                    :value="opcao.Nome">
+                                                {{ opcao.Nome }}{{ opcao.Ativo ? '' : ' (fora do sorteio)' }}
+                                            </option>
+                                        </select>
+                                    </label>
+                                    <label>
+                                        <span>Transição</span>
+                                        <select v-model="cena.Transicao" :disabled="Number(cena.Round) === 1">
+                                            <option value="corte">Corte direto</option>
+                                            <option value="fade">Fade</option>
+                                            <option value="queda">Queda / descida</option>
+                                        </select>
+                                    </label>
+                                    <label v-if="(cena.Transicao === 'fade' || cena.Transicao === 'queda') && Number(cena.Round) !== 1">
+                                        <span>Duração (frames)</span>
+                                        <input type="number" min="1" max="180" v-model.number="cena.DuracaoFrames">
+                                    </label>
+                                    <button type="button" class="stage-scene__remove" title="Remover cena" v-on:click="removerCena(indice)">
+                                        <i class="fa fa-trash" aria-hidden="true"></i>
+                                    </button>
+                                </article>
+                            </div>
+
+                            <p v-if="Formulario.Cenas.length" class="stage-scenes__ids">
+                                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                Em “Queda / descida”, os dois cenários deslizam entre os rounds e os lutadores acompanham o movimento. O DreamMover preserva os arquivos originais.
+                            </p>
+                        </section>
+
+                        <p v-if="!Formulario.Id && AnaliseToken && PacotesImportacaoAtivos.length > 1" class="stage-metadata-note">
+                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                            Nome e autor serão lidos de cada <code>.def</code>; o universo selecionado será aplicado a todos.
+                        </p>
+
+                        <label v-if="!Formulario.Id && AnaliseToken" class="stage-overwrite">
+                            <input type="checkbox" v-model="Formulario.SobrescreverArquivos">
+                            <span>Substituir arquivos de mesmo nome que já estejam em stages</span>
+                        </label>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="stage-button stage-button--ghost" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="stage-button stage-button--primary" :disabled="Salvando || SalvandoMusica || AnalisandoPacotes || !PodeConfirmarCadastro">
+                            <i class="fa" :class="(Salvando || AnalisandoPacotes) ? 'fa-spinner fa-spin' : (AnaliseToken || Formulario.Id ? 'fa-check' : 'fa-search')" aria-hidden="true"></i>
+                            {{ AnalisandoPacotes ? 'Analisando' : (Salvando ? 'Importando' : TextoAcaoCadastro) }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalLeitorDef" tabindex="-1" role="dialog" aria-labelledby="modalLeitorDefTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+            <div class="modal-content stage-modal stage-def-modal">
+                <div class="modal-header">
+                    <div>
+                        <span>{{ LeitorDef.Nome || 'Arquivo do cenário' }} · somente leitura</span>
+                        <h2 id="modalLeitorDefTitulo">{{ LeitorDef.ArquivoDef || 'Arquivo .def' }}</h2>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div v-if="LeitorDef.Carregando" class="stage-def-state" role="status">
+                        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                        <span>Lendo o arquivo de {{ LeitorDef.Nome }}...</span>
+                    </div>
+                    <div v-else-if="LeitorDef.Erro" class="stage-def-state stage-def-state--error" role="alert">
+                        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                        <span>{{ LeitorDef.Erro }}</span>
+                    </div>
+                    <pre v-else class="stage-def-reader" tabindex="0">{{ LeitorDef.Conteudo }}</pre>
+                </div>
+                <div class="modal-footer">
+                    <small v-if="!LeitorDef.Carregando && !LeitorDef.Erro">{{ LeitorDef.Conteudo.length.toLocaleString('pt-BR') }} caracteres</small>
+                    <button type="button" class="stage-button stage-button--ghost" data-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<link rel="stylesheet" href="~/Content/css/Cenario.css?v=20261002-1">
+<script src="~/Content/js/Views/Cenario/Index.js?v=20261002-1"></script>

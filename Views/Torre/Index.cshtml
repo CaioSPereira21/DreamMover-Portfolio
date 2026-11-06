@@ -1,0 +1,315 @@
+@{
+    ViewBag.Title = "Torre de Universos";
+}
+
+@section styles {
+    <link rel="stylesheet" href="~/Content/css/Lutador.css?v=20260922-2">
+    <link rel="stylesheet" href="~/Content/css/Torre.css?v=20260814-2">
+}
+
+<section id="torreApp" class="content torre-page" v-cloak>
+    <header class="torre-hero">
+        <div>
+            <span class="torre-eyebrow">DreamMover Multiverso</span>
+            <h1>Torre de Universos</h1>
+            <p>Escolha um lutador, invada um universo e conquiste uma ins&iacute;gnia permanente.</p>
+        </div>
+        <div class="torre-hero__rule">
+            <i class="fa fa-shield" aria-hidden="true"></i>
+            <span>
+                <strong>A ins&iacute;gnia n&atilde;o expira</strong>
+                <small>O dom&iacute;nio acompanha o elenco atual</small>
+            </span>
+        </div>
+    </header>
+
+    <section class="torre-builder" aria-label="Configura&ccedil;&atilde;o da torre">
+        <div class="torre-builder__fighter">
+            <div class="torre-fighter-heading">
+                <label>1. Escolha o desafiante</label>
+                <span>{{ LutadoresFiltrados.length }} no elenco</span>
+            </div>
+
+            <article class="torre-fighter-selected" v-if="LutadorSelecionado">
+                <img :src="LutadorSelecionado.Portrait" :alt="LutadorSelecionado.Nome" v-on:error="usarImagemIndefinida">
+                <div>
+                    <span>Desafiante selecionado</span>
+                    <strong>{{ LutadorSelecionado.Nome }}</strong>
+                    <small>{{ LutadorSelecionado.UniversoNome }} &middot; Elo {{ LutadorSelecionado.RatingElo }} &middot; Nv. {{ LutadorSelecionado.Nivel }}</small>
+                </div>
+                <button type="button"
+                        title="Ver perfil completo"
+                        :aria-label="'Ver perfil de ' + LutadorSelecionado.Nome"
+                        v-on:click.prevent="abrirModal(LutadorSelecionado.Id)">
+                    <i class="fa fa-bar-chart" aria-hidden="true"></i>
+                </button>
+            </article>
+
+            <label class="torre-fighter-search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <span class="sr-only">Buscar lutador</span>
+                <input type="search"
+                       v-model.trim="BuscaLutador"
+                       placeholder="Buscar por nome, universo ou tag..."
+                       autocomplete="off"
+                       :disabled="CarregandoLutadores || ExecutandoAndar">
+                <button type="button"
+                        v-if="BuscaLutador"
+                        title="Limpar busca"
+                        aria-label="Limpar busca"
+                        v-on:click.prevent="BuscaLutador = ''">
+                    <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+            </label>
+
+            <section class="torre-fighter-filters" aria-label="Filtros do elenco">
+                <header>
+                    <span><i class="fa fa-sliders" aria-hidden="true"></i> Filtros</span>
+                    <button type="button" v-on:click.prevent="limparFiltrosLutadores" :disabled="!TemFiltrosLutadoresAtivos">
+                        Limpar tudo
+                    </button>
+                </header>
+                <div>
+                    <label>
+                        <span>Universo</span>
+                        <select v-model="FiltroUniversoLutador" :disabled="ExecutandoAndar">
+                            <option value="">Todos</option>
+                            <option v-for="universo in UniversosDosLutadores" :key="'lutador-universo-' + universo" :value="universo">{{ universo }}</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>N&iacute;vel</span>
+                        <select v-model="FiltroNivelLutador" :disabled="ExecutandoAndar">
+                            <option value="">Todos</option>
+                            <option v-for="nivel in NiveisDosLutadores" :key="'lutador-nivel-' + nivel" :value="String(nivel)">N&iacute;vel {{ nivel }}</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Tag</span>
+                        <select v-model="FiltroTagLutador" :disabled="ExecutandoAndar">
+                            <option value="">Todas</option>
+                            <option v-for="tag in TagsDosLutadores" :key="'lutador-tag-' + tag" :value="tag">{{ tag }}</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Ordenar</span>
+                        <select v-model="OrdenacaoLutadores" :disabled="ExecutandoAndar">
+                            <option value="nome">Nome A&ndash;Z</option>
+                            <option value="elo-desc">Maior Elo</option>
+                            <option value="elo-asc">Menor Elo</option>
+                            <option value="nivel-desc">Maior n&iacute;vel</option>
+                        </select>
+                    </label>
+                </div>
+            </section>
+
+            <div class="torre-fighter-state" v-if="CarregandoLutadores">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Carregando elenco
+            </div>
+            <div class="torre-fighter-state" v-else-if="!LutadoresFiltrados.length">
+                <i class="fa fa-search" aria-hidden="true"></i> Nenhum lutador encontrado
+            </div>
+            <div class="torre-fighter-list" v-else>
+                <article class="torre-fighter-option"
+                         v-for="lutador in LutadoresFiltrados"
+                         :key="lutador.Id"
+                         :class="{ 'torre-fighter-option--selected': LutadorSelecionado && LutadorSelecionado.Id === lutador.Id }">
+                    <button type="button"
+                            class="torre-fighter-option__select"
+                            v-on:click.prevent="selecionarLutador(lutador)"
+                            :disabled="ExecutandoAndar"
+                            :aria-label="'Selecionar ' + lutador.Nome">
+                        <img :src="lutador.Portrait" :alt="lutador.Nome" loading="lazy" decoding="async" v-on:error="usarImagemIndefinida">
+                        <span>
+                            <strong>{{ lutador.Nome }}</strong>
+                            <small>{{ lutador.UniversoNome }}</small>
+                        </span>
+                        <span class="torre-fighter-option__rating">
+                            <strong>{{ lutador.RatingElo }}</strong>
+                            <small>Elo &middot; Nv. {{ lutador.Nivel }}</small>
+                        </span>
+                    </button>
+                    <button type="button"
+                            class="torre-fighter-option__profile"
+                            title="Ver perfil"
+                            :aria-label="'Ver perfil de ' + lutador.Nome"
+                            v-on:click.prevent.stop="abrirModal(lutador.Id)">
+                        <i class="fa fa-eye" aria-hidden="true"></i>
+                    </button>
+                </article>
+            </div>
+        </div>
+
+        <div class="torre-builder__universes">
+            <div class="torre-builder__title">
+                <div>
+                    <label>2. Escolha o universo</label>
+                    <small v-if="LutadorSelecionado">Apenas universos com cinco advers&aacute;rios dispon&iacute;veis</small>
+                </div>
+                <span v-if="CarregandoUniversos"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Carregando</span>
+            </div>
+
+            <div class="torre-universe-empty" v-if="!LutadorSelecionado">
+                Selecione o desafiante para descobrir as torres dispon&iacute;veis.
+            </div>
+
+            <div class="torre-universe-grid" v-else-if="Universos.length">
+                <button type="button"
+                        class="torre-universe-card"
+                        v-for="universo in Universos"
+                        :key="universo.Nome"
+                        :class="{ 'torre-universe-card--selected': UniversoSelecionado && UniversoSelecionado.Nome === universo.Nome }"
+                        v-on:click="selecionarUniverso(universo)"
+                        :disabled="ExecutandoAndar">
+                    <img :src="universo.Imagem" alt="" v-on:error="usarImagemIndefinida">
+                    <span>
+                        <strong>{{ universo.Nome }}</strong>
+                        <small>{{ universo.UniversoNatal ? 'Prova do universo natal' : 'Invas&atilde;o de universo' }}</small>
+                    </span>
+                    <span class="torre-universe-card__meta">
+                        <em>{{ universo.QuantidadeAdversarios }} rivais</em>
+                        <i class="fa fa-trophy" aria-hidden="true" v-if="universo.Conquistado" title="Ins&iacute;gnia conquistada"></i>
+                        <i class="fa fa-shield torre-universe-card__mastery"
+                           aria-hidden="true"
+                           v-if="universo.Dominio.DominioCompleto"
+                           title="Ins&iacute;gnia de Dom&iacute;nio Total"></i>
+                        <b>{{ universo.Dominio.Derrotados }}/{{ universo.Dominio.TotalAtual }}</b>
+                    </span>
+                </button>
+            </div>
+
+            <div class="torre-universe-empty" v-else-if="!CarregandoUniversos">
+                Nenhum universo possui cinco advers&aacute;rios para esse lutador.
+            </div>
+        </div>
+
+        <div class="torre-builder__action">
+            <button type="button" class="torre-primary-button" v-on:click="criarTorre" :disabled="!PodeCriarTorre">
+                <i :class="CriandoTorre ? 'fa fa-spinner fa-spin' : 'fa fa-random'" aria-hidden="true"></i>
+                <span>{{ CriandoTorre ? 'Gerando torre' : 'Gerar Torre R&aacute;pida' }}</span>
+            </button>
+            <small>5 andares &middot; sem repetir advers&aacute;rios</small>
+        </div>
+    </section>
+
+    <section class="torre-run" v-if="Torre" :class="'torre-run--' + Torre.Status.toLowerCase()">
+        <header class="torre-run__header" :style="estiloUniverso(Torre.UniversoImagem)">
+            <div class="torre-run__identity">
+                <img :src="Torre.LutadorPortrait" :alt="Torre.LutadorNome" v-on:error="usarImagemIndefinida">
+                <div>
+                    <span>{{ Torre.TipoNome }}</span>
+                    <h2>{{ Torre.LutadorNome }} <small>vs.</small> {{ Torre.UniversoAlvo }}</h2>
+                        <p>{{ textoStatusTorre }}</p>
+                </div>
+            </div>
+            <div class="torre-run__status">
+                <span>{{ Torre.Status }}</span>
+                <strong>{{ AndaresVencidos }}/{{ Torre.TotalAndares }}</strong>
+                <small>andares vencidos</small>
+            </div>
+        </header>
+
+        <div class="torre-progress" aria-label="Progresso da torre">
+            <div class="torre-progress__fill" :style="{ width: ProgressoTorre + '%' }"></div>
+        </div>
+
+        <div class="torre-run__body">
+            <div class="torre-floor-list">
+                <article class="torre-floor"
+                         v-for="andar in Torre.Andares"
+                         :key="andar.Id"
+                         :class="classeAndar(andar)">
+                    <div class="torre-floor__number">
+                        <span>{{ andar.Ordem }}</span>
+                        <small>andar</small>
+                    </div>
+                    <img :src="andar.Portrait" :alt="andar.AdversarioNome" v-on:error="usarImagemIndefinida">
+                    <div class="torre-floor__fighter">
+                        <span>{{ andar.Funcao }}</span>
+                        <strong>{{ andar.AdversarioNome }}</strong>
+                        <small>Elo {{ andar.RatingEloNoSorteio }} &middot; N&iacute;vel {{ andar.NivelNoSorteio }}</small>
+                    </div>
+                    <div class="torre-floor__state">
+                        <i :class="iconeAndar(andar)" aria-hidden="true"></i>
+                        <span>{{ textoAndar(andar) }}</span>
+                    </div>
+                </article>
+            </div>
+
+            <aside class="torre-side-panel">
+                <section class="torre-next" v-if="ProximoAndar">
+                    <span class="torre-side-title">Pr&oacute;ximo combate</span>
+                    <img :src="ProximoAndar.Stand" :alt="ProximoAndar.AdversarioNome" v-on:error="usarImagemIndefinida">
+                    <strong>{{ ProximoAndar.AdversarioNome }}</strong>
+                    <small>Andar {{ ProximoAndar.Ordem }} &middot; {{ ProximoAndar.Funcao }}</small>
+                    <button type="button" class="torre-fight-button" v-on:click="iniciarAndar" :disabled="ExecutandoAndar">
+                        <i :class="ExecutandoAndar ? 'fa fa-spinner fa-spin' : 'fa fa-play'" aria-hidden="true"></i>
+                        <span>{{ ExecutandoAndar ? 'IKEMEN em execu&ccedil;&atilde;o' : 'Iniciar andar' }}</span>
+                    </button>
+                    <em v-if="ExecutandoAndar">Aguarde o confronto terminar.</em>
+                </section>
+
+                <section class="torre-result torre-result--success" v-else-if="Torre.Status === 'Concluida'">
+                    <i class="fa fa-trophy" aria-hidden="true"></i>
+                    <span>Ins&iacute;gnia conquistada</span>
+                    <strong>Bronze &middot; {{ Torre.UniversoAlvo }}</strong>
+                    <small>Esta conquista &eacute; permanente.</small>
+                </section>
+
+                <section class="torre-result torre-result--failure" v-else-if="Torre.Status === 'Fracassada'">
+                    <i class="fa fa-times-circle" aria-hidden="true"></i>
+                    <span>Tentativa encerrada</span>
+                    <strong>A torre venceu desta vez</strong>
+                    <small>Gere uma nova sequ&ecirc;ncia para tentar novamente.</small>
+                </section>
+
+                <section class="torre-domain">
+                    <div class="torre-domain__title">
+                        <span>Dom&iacute;nio atual</span>
+                        <strong>{{ Torre.Dominio.Percentual }}%</strong>
+                    </div>
+                    <div class="torre-domain__track">
+                        <div :style="{ width: Torre.Dominio.Percentual + '%' }"></div>
+                    </div>
+                    <p>
+                        <strong>{{ Torre.Dominio.Derrotados }}/{{ Torre.Dominio.TotalAtual }}</strong>
+                        guerreiros do elenco atual j&aacute; foram derrotados.
+                    </p>
+                    <small v-if="Torre.InsigniaConquistada && Torre.Dominio.NovosDesafios > 0">
+                        <i class="fa fa-star" aria-hidden="true"></i>
+                        A ins&iacute;gnia continua v&aacute;lida; ainda h&aacute; {{ Torre.Dominio.NovosDesafios }} desafios para o dom&iacute;nio total.
+                    </small>
+                    <small class="torre-domain__mastery" v-if="Torre.Dominio.DominioCompleto">
+                        <i class="fa fa-shield" aria-hidden="true"></i>
+                        Ins&iacute;gnia de Dom&iacute;nio Total ativa enquanto todo o elenco permanecer dominado.
+                    </small>
+                </section>
+            </aside>
+        </div>
+    </section>
+
+    <section class="torre-welcome" v-else>
+        <i class="fa fa-building" aria-hidden="true"></i>
+        <div>
+            <strong>Sua primeira torre aparecer&aacute; aqui</strong>
+            <span>A ordem &eacute; salva no banco e n&atilde;o muda quando o ranking &eacute; atualizado.</span>
+        </div>
+    </section>
+
+    <div class="modal fade fighter-profile-modal" id="detalhesModal" tabindex="-1" role="dialog" aria-label="Perfil do lutador" aria-modal="true" aria-hidden="true">
+        <div class="modal-dialog modal-xl fighter-profile-modal__dialog" role="document">
+            <div class="modal-content fighter-profile-modal__content">
+                <div id="conteudoModal" class="fighter-profile-modal__host" aria-live="polite">
+                    <div class="fighter-details-loading">
+                        <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                        Carregando perfil...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section scripts {
+    <script src="~/Content/js/Views/Torre/Index.js?v=20260814-1"></script>
+}

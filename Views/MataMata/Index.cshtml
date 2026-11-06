@@ -1,0 +1,372 @@
+@{
+    ViewBag.Title = "Campeonato Mata-Mata";
+}
+
+<section id="matamataApp" class="content mata-mata-page">
+    <div class="tournament-shell">
+        <header class="tournament-hero">
+            <div class="hero-copy">
+                <span class="hero-kicker">DreamMover Arena</span>
+                <h1>Campeonato Mata-Mata</h1>
+                <p>Final em aberto, semifinais encerradas e chave pronta para decidir quem levanta o trofeu da arena.</p>
+                <div class="hero-metrics">
+                    <span><strong>{{ totalLutadores }}</strong> lutadores</span>
+                    <span><strong>{{ fases.length }}</strong> fases</span>
+                    <span><strong>{{ partidasFinalizadas }}</strong> encerradas</span>
+                </div>
+            </div>
+
+            <div class="hero-actions" aria-label="Acoes do campeonato">
+                <button type="button" class="dm-button dm-button--light" title="Sortear chave" v-on:click.prevent="sortearChave">
+                    <i class="fa fa-random" aria-hidden="true"></i>
+                    <span>Sortear chave</span>
+                </button>
+                <button type="button" class="dm-button dm-button--accent" title="Iniciar confronto em destaque" v-on:click.prevent="iniciarConfrontoDestaque" :disabled="!podeIniciarConfronto">
+                    <i class="fa fa-play" aria-hidden="true"></i>
+                    <span>{{ carregandoConfronto ? 'Abrindo IKEMEN' : 'Iniciar confronto' }}</span>
+                </button>
+            </div>
+
+            <div class="hero-versus-mark" aria-hidden="true">
+                <img src="~/Imagens/Versus.png" alt="">
+            </div>
+        </header>
+
+        <section class="featured-fight" v-if="confrontoDestaque">
+            <article class="featured-fighter featured-fighter--left"
+                     role="button"
+                     tabindex="0"
+                     v-on:click.prevent="abrirModal(confrontoDestaque.jogador1 && confrontoDestaque.jogador1.Id)"
+                     v-on:keyup.enter.prevent="abrirModal(confrontoDestaque.jogador1 && confrontoDestaque.jogador1.Id)"
+                     :title="'Ver detalhes de ' + getNome(confrontoDestaque.jogador1)"
+                     :class="{ 'featured-fighter--winner': ehVencedor(confrontoDestaque, confrontoDestaque.jogador1) }"
+                     :style="getEstiloDestaque(confrontoDestaque.jogador1)">
+                <div class="featured-fighter__info">
+                    <div class="featured-stars"
+                         :title="getTituloNivel(confrontoDestaque.jogador1)"
+                         :aria-label="getTituloNivel(confrontoDestaque.jogador1)">
+                        <i class="fa fa-star"
+                           aria-hidden="true"
+                           v-for="estrela in getEstrelasNivel(confrontoDestaque.jogador1)"
+                           :key="'j1-star-' + estrela"></i>
+                    </div>
+                    <h2>{{ getNome(confrontoDestaque.jogador1) }}</h2>
+                </div>
+                <img :src="getStand(confrontoDestaque.jogador1)" :alt="getNome(confrontoDestaque.jogador1)" class="featured-fighter__image">
+                <span class="featured-score">{{ getPlacar(confrontoDestaque, 1) }}</span>
+            </article>
+
+            <div class="versus-core">
+                <span>{{ confrontoDestaque.fase }}</span>
+                <img src="~/Imagens/Versus.png" alt="Versus">
+                <small>{{ getStatusPartida(confrontoDestaque) }}</small>
+            </div>
+
+            <article class="featured-fighter featured-fighter--right"
+                     role="button"
+                     tabindex="0"
+                     v-on:click.prevent="abrirModal(confrontoDestaque.jogador2 && confrontoDestaque.jogador2.Id)"
+                     v-on:keyup.enter.prevent="abrirModal(confrontoDestaque.jogador2 && confrontoDestaque.jogador2.Id)"
+                     :title="'Ver detalhes de ' + getNome(confrontoDestaque.jogador2)"
+                     :class="{ 'featured-fighter--winner': ehVencedor(confrontoDestaque, confrontoDestaque.jogador2) }"
+                     :style="getEstiloDestaque(confrontoDestaque.jogador2)">
+                <div class="featured-fighter__info">
+                    <div class="featured-stars"
+                         :title="getTituloNivel(confrontoDestaque.jogador2)"
+                         :aria-label="getTituloNivel(confrontoDestaque.jogador2)">
+                        <i class="fa fa-star"
+                           aria-hidden="true"
+                           v-for="estrela in getEstrelasNivel(confrontoDestaque.jogador2)"
+                           :key="'j2-star-' + estrela"></i>
+                    </div>
+                    <h2>{{ getNome(confrontoDestaque.jogador2) }}</h2>
+                </div>
+                <img :src="getStand(confrontoDestaque.jogador2)" :alt="getNome(confrontoDestaque.jogador2)" class="featured-fighter__image">
+                <span class="featured-score">{{ getPlacar(confrontoDestaque, 2) }}</span>
+            </article>
+        </section>
+
+        <section class="tournament-progress" aria-label="Progresso do campeonato">
+            <div class="progress-copy">
+                <span>Progresso</span>
+                <strong>{{ progressoCampeonato }}%</strong>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" :style="{ width: progressoCampeonato + '%' }"></div>
+            </div>
+        </section>
+
+        <section class="draw-panel" aria-label="Filtros do sorteio">
+            <div class="draw-panel__header">
+                <div>
+                    <span class="draw-panel__eyebrow">Sorteio</span>
+                    <h2>Filtros da chave</h2>
+                </div>
+                <div class="draw-panel__summary">
+                    <strong>{{ lutadoresFiltrados.length }}</strong>
+                    <span>aptos</span>
+                </div>
+            </div>
+
+            <div class="draw-panel__body">
+                <div class="filter-group filter-group--universes">
+                    <div class="filter-group__title">
+                        <span>Universos</span>
+                        <button type="button" class="filter-link" v-on:click.prevent="limparUniversos" :disabled="!universosSelecionados.length">Limpar</button>
+                    </div>
+
+                    <div class="universe-filter-list">
+                        <button type="button"
+                                class="universe-filter"
+                                v-for="universo in universosDisponiveis"
+                                :key="universo.nome"
+                                :class="{ 'universe-filter--active': universoSelecionado(universo.nome) }"
+                                v-on:click.prevent="alternarUniverso(universo.nome)"
+                                :title="'Filtrar ' + universo.nome">
+                            <img :src="getImagemUniverso(universo)" alt="" v-on:error="usarImagemIndefinida">
+                            <span>{{ universo.nome }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-group filter-group--levels">
+                    <div class="filter-group__title">
+                        <span>Nivel</span>
+                        <button type="button" class="filter-link" v-on:click.prevent="limparNivel" :disabled="!nivelMinimo && !nivelMaximo">Limpar</button>
+                    </div>
+
+                    <div class="level-filter-grid">
+                        <label class="level-field">
+                            <span>Minimo</span>
+                            <select v-model="nivelMinimo">
+                                <option value="">Todos</option>
+                                <option v-for="nivel in niveisDisponiveis" :key="'min-' + nivel" :value="nivel">{{ nivel }}</option>
+                            </select>
+                        </label>
+
+                        <label class="level-field">
+                            <span>Maximo</span>
+                            <select v-model="nivelMaximo">
+                                <option value="">Todos</option>
+                                <option v-for="nivel in niveisDisponiveis" :key="'max-' + nivel" :value="nivel">{{ nivel }}</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="draw-mode" role="group" aria-label="Modo do sorteio">
+                        <button type="button"
+                                class="draw-mode__option"
+                                :class="{ 'draw-mode__option--active': criterioSorteio === 'aleatorio' }"
+                                v-on:click.prevent="criterioSorteio = 'aleatorio'">
+                            <i class="fa fa-random" aria-hidden="true"></i>
+                            <span>Aleatorio</span>
+                        </button>
+                        <button type="button"
+                                class="draw-mode__option"
+                                :class="{ 'draw-mode__option--active': criterioSorteio === 'rating' }"
+                                v-on:click.prevent="criterioSorteio = 'rating'">
+                            <i class="fa fa-sort-amount-desc" aria-hidden="true"></i>
+                            <span>Por Elo</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <main class="bracket-layout">
+            <section class="bracket-board" aria-label="Chave mata-mata">
+                <div class="bracket-side bracket-side--left">
+                    <div class="bracket-round"
+                         v-for="fase in bracketLadoEsquerdo"
+                         :key="'left-' + fase.nome"
+                         :class="'round--stage-' + fase.faseIndex">
+                        <div class="round-header">
+                            <span>{{ fase.sigla }}</span>
+                            <h3>{{ fase.nome }}</h3>
+                            <small>{{ fase.partidas.length }} confronto{{ fase.partidas.length > 1 ? 's' : '' }}</small>
+                        </div>
+
+                        <div class="bracket-matches">
+                            <article class="bracket-match"
+                                     role="button"
+                                     tabindex="0"
+                                     v-for="partida in fase.partidas"
+                                     :key="partida.id"
+                                     :class="{ 'bracket-match--active': partida.id === confrontoSelecionadoId, 'bracket-match--finished': temResultado(partida), 'bracket-match--pending': !temResultado(partida) }"
+                                     v-on:click.prevent="selecionarConfronto(partida)"
+                                     v-on:keyup.enter.prevent="selecionarConfronto(partida)"
+                                     :title="'Selecionar ' + fase.nome + ' - Jogo ' + getNumeroPartida(fase.faseIndex, partida)">
+                                <span class="match-label">Jogo {{ getNumeroPartida(fase.faseIndex, partida) }}</span>
+                                <span class="match-status">{{ getStatusPartida(partida) }}</span>
+
+                                <button type="button"
+                                        class="fighter-row"
+                                        :disabled="!partida.jogador1"
+                                        v-on:click.stop.prevent="abrirModal(partida.jogador1 && partida.jogador1.Id)"
+                                        :title="'Ver detalhes de ' + getNome(partida.jogador1)"
+                                        :class="{ 'fighter-row--winner': ehVencedor(partida, partida.jogador1), 'fighter-row--empty': !partida.jogador1 }">
+                                    <img :src="getImagem(partida.jogador1)" :alt="getNome(partida.jogador1)" class="fighter-avatar">
+                                    <span class="fighter-name">
+                                        <strong>{{ getNome(partida.jogador1) }}</strong>
+                                        <small>{{ getSeed(partida.jogador1) }}</small>
+                                    </span>
+                                    <span class="score-pill">{{ getPlacar(partida, 1) }}</span>
+                                </button>
+
+                                <button type="button"
+                                        class="fighter-row"
+                                        :disabled="!partida.jogador2"
+                                        v-on:click.stop.prevent="abrirModal(partida.jogador2 && partida.jogador2.Id)"
+                                        :title="'Ver detalhes de ' + getNome(partida.jogador2)"
+                                        :class="{ 'fighter-row--winner': ehVencedor(partida, partida.jogador2), 'fighter-row--empty': !partida.jogador2 }">
+                                    <img :src="getImagem(partida.jogador2)" :alt="getNome(partida.jogador2)" class="fighter-avatar">
+                                    <span class="fighter-name">
+                                        <strong>{{ getNome(partida.jogador2) }}</strong>
+                                        <small>{{ getSeed(partida.jogador2) }}</small>
+                                    </span>
+                                    <span class="score-pill">{{ getPlacar(partida, 2) }}</span>
+                                </button>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bracket-center">
+                    <div class="bracket-title-mark">
+                        <span>Playoffs</span>
+                        <strong>{{ totalLutadores }} lutadores</strong>
+                    </div>
+
+                    <article class="bracket-match bracket-match--final"
+                                 role="button"
+                                 tabindex="0"
+                             :class="{ 'bracket-match--active': finalPartida && finalPartida.id === confrontoSelecionadoId, 'bracket-match--finished': temResultado(finalPartida), 'bracket-match--pending': !temResultado(finalPartida) }"
+                             v-on:click.prevent="selecionarConfronto(finalPartida)"
+                             v-on:keyup.enter.prevent="selecionarConfronto(finalPartida)"
+                             title="Selecionar grande final">
+                        <span class="match-label">Grande final</span>
+                        <span class="match-status">{{ getStatusPartida(finalPartida) }}</span>
+
+                        <button type="button"
+                                class="fighter-row"
+                                :disabled="!finalPartida || !finalPartida.jogador1"
+                                v-on:click.stop.prevent="abrirModal(finalPartida && finalPartida.jogador1 && finalPartida.jogador1.Id)"
+                                :title="'Ver detalhes de ' + getNome(finalPartida && finalPartida.jogador1)"
+                                :class="{ 'fighter-row--winner': ehVencedor(finalPartida, finalPartida && finalPartida.jogador1), 'fighter-row--empty': !finalPartida || !finalPartida.jogador1 }">
+                            <img :src="getImagem(finalPartida && finalPartida.jogador1)" :alt="getNome(finalPartida && finalPartida.jogador1)" class="fighter-avatar">
+                            <span class="fighter-name">
+                                <strong>{{ getNome(finalPartida && finalPartida.jogador1) }}</strong>
+                                <small>{{ getSeed(finalPartida && finalPartida.jogador1) }}</small>
+                            </span>
+                            <span class="score-pill">{{ getPlacar(finalPartida, 1) }}</span>
+                        </button>
+
+                        <button type="button"
+                                class="fighter-row"
+                                :disabled="!finalPartida || !finalPartida.jogador2"
+                                v-on:click.stop.prevent="abrirModal(finalPartida && finalPartida.jogador2 && finalPartida.jogador2.Id)"
+                                :title="'Ver detalhes de ' + getNome(finalPartida && finalPartida.jogador2)"
+                                :class="{ 'fighter-row--winner': ehVencedor(finalPartida, finalPartida && finalPartida.jogador2), 'fighter-row--empty': !finalPartida || !finalPartida.jogador2 }">
+                            <img :src="getImagem(finalPartida && finalPartida.jogador2)" :alt="getNome(finalPartida && finalPartida.jogador2)" class="fighter-avatar">
+                            <span class="fighter-name">
+                                <strong>{{ getNome(finalPartida && finalPartida.jogador2) }}</strong>
+                                <small>{{ getSeed(finalPartida && finalPartida.jogador2) }}</small>
+                            </span>
+                            <span class="score-pill">{{ getPlacar(finalPartida, 2) }}</span>
+                        </button>
+                    </article>
+
+                    <aside class="champion-panel"
+                           :class="{ 'champion-panel--pending': !campeao }"
+                           :role="campeao ? 'button' : null"
+                           :tabindex="campeao ? 0 : -1"
+                           v-on:click.prevent="abrirModal(campeao && campeao.Id)"
+                           v-on:keyup.enter.prevent="abrirModal(campeao && campeao.Id)"
+                           :title="campeao ? 'Ver detalhes de ' + getNome(campeao) : 'Aguardando campeao'">
+                        <span class="champion-panel__eyebrow">Campeao</span>
+                        <img :src="getImagem(campeao)" :alt="getNome(campeao)" class="champion-panel__portrait">
+                        <h3>{{ getNome(campeao) }}</h3>
+                        <p>{{ campeao ? getSubtitulo(campeao) : 'Aguardando a grande final' }}</p>
+                        <div class="champion-panel__badge">
+                            <i class="fa fa-trophy" aria-hidden="true"></i>
+                            <span>{{ campeao ? 'Titulo confirmado' : 'Final em aberto' }}</span>
+                        </div>
+                    </aside>
+                </div>
+
+                <div class="bracket-side bracket-side--right">
+                    <div class="bracket-round"
+                         v-for="fase in bracketLadoDireito"
+                         :key="'right-' + fase.nome"
+                         :class="'round--stage-' + fase.faseIndex">
+                        <div class="round-header">
+                            <span>{{ fase.sigla }}</span>
+                            <h3>{{ fase.nome }}</h3>
+                            <small>{{ fase.partidas.length }} confronto{{ fase.partidas.length > 1 ? 's' : '' }}</small>
+                        </div>
+
+                        <div class="bracket-matches">
+                            <article class="bracket-match"
+                                     role="button"
+                                     tabindex="0"
+                                     v-for="partida in fase.partidas"
+                                     :key="partida.id"
+                                     :class="{ 'bracket-match--active': partida.id === confrontoSelecionadoId, 'bracket-match--finished': temResultado(partida), 'bracket-match--pending': !temResultado(partida) }"
+                                     v-on:click.prevent="selecionarConfronto(partida)"
+                                     v-on:keyup.enter.prevent="selecionarConfronto(partida)"
+                                     :title="'Selecionar ' + fase.nome + ' - Jogo ' + getNumeroPartida(fase.faseIndex, partida)">
+                                <span class="match-label">Jogo {{ getNumeroPartida(fase.faseIndex, partida) }}</span>
+                                <span class="match-status">{{ getStatusPartida(partida) }}</span>
+
+                                <button type="button"
+                                        class="fighter-row"
+                                        :disabled="!partida.jogador1"
+                                        v-on:click.stop.prevent="abrirModal(partida.jogador1 && partida.jogador1.Id)"
+                                        :title="'Ver detalhes de ' + getNome(partida.jogador1)"
+                                        :class="{ 'fighter-row--winner': ehVencedor(partida, partida.jogador1), 'fighter-row--empty': !partida.jogador1 }">
+                                    <img :src="getImagem(partida.jogador1)" :alt="getNome(partida.jogador1)" class="fighter-avatar">
+                                    <span class="fighter-name">
+                                        <strong>{{ getNome(partida.jogador1) }}</strong>
+                                        <small>{{ getSeed(partida.jogador1) }}</small>
+                                    </span>
+                                    <span class="score-pill">{{ getPlacar(partida, 1) }}</span>
+                                </button>
+
+                                <button type="button"
+                                        class="fighter-row"
+                                        :disabled="!partida.jogador2"
+                                        v-on:click.stop.prevent="abrirModal(partida.jogador2 && partida.jogador2.Id)"
+                                        :title="'Ver detalhes de ' + getNome(partida.jogador2)"
+                                        :class="{ 'fighter-row--winner': ehVencedor(partida, partida.jogador2), 'fighter-row--empty': !partida.jogador2 }">
+                                    <img :src="getImagem(partida.jogador2)" :alt="getNome(partida.jogador2)" class="fighter-avatar">
+                                    <span class="fighter-name">
+                                        <strong>{{ getNome(partida.jogador2) }}</strong>
+                                        <small>{{ getSeed(partida.jogador2) }}</small>
+                                    </span>
+                                    <span class="score-pill">{{ getPlacar(partida, 2) }}</span>
+                                </button>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal fade fighter-profile-modal" id="detalhesModal" tabindex="-1" role="dialog" aria-label="Perfil do lutador" aria-modal="true" aria-hidden="true">
+        <div class="modal-dialog modal-xl fighter-profile-modal__dialog" role="document">
+            <div class="modal-content fighter-profile-modal__content">
+                <div id="conteudoModal" class="fighter-profile-modal__host" aria-live="polite">
+                    <div class="fighter-details-loading">
+                        <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+                        Carregando perfil...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<link rel="stylesheet" href="~/Content/css/Lutador.css?v=20260922-2">
+<link rel="stylesheet" href="~/Content/css/MataMata.css">
+<script src="~/Content/js/Views/MataMata/Index.js"></script>

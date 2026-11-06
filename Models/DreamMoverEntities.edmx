@@ -1,0 +1,442 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="lutasModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Lutador">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Exp" Type="float" />
+          <Property Name="Nivel" Type="int" />
+          <Property Name="RatingElo" Type="int" Nullable="false" />
+          <Property Name="Nome" Type="nvarchar" MaxLength="255" />
+          <Property Name="Universo" Type="nvarchar" MaxLength="255" />
+          <Property Name="Autor" Type="nvarchar" MaxLength="255" />
+          <Property Name="Portrait" Type="nvarchar" MaxLength="255" />
+          <Property Name="Stand" Type="nvarchar" MaxLength="255" />
+          <Property Name="PastaPersonagem" Type="nvarchar" MaxLength="500" />
+        </EntityType>
+        <EntityType Name="Cenario">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nome" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="ArquivoDef" Type="nvarchar" MaxLength="260" Nullable="false" />
+          <Property Name="Universo" Type="nvarchar" MaxLength="255" />
+          <Property Name="Autor" Type="nvarchar" MaxLength="255" />
+          <Property Name="Imagem" Type="nvarchar" MaxLength="255" />
+          <Property Name="Ativo" Type="bit" Nullable="false" />
+          <Property Name="Excluido" Type="bit" Nullable="false" />
+          <Property Name="DataCadastro" Type="datetime2" Precision="7" Nullable="false" />
+          <Property Name="DataAtualizacao" Type="datetime2" Precision="7" />
+          <Property Name="CenasJson" Type="nvarchar(max)" />
+        </EntityType>
+        <EntityType Name="LutadorTag">
+          <Key>
+            <PropertyRef Name="IdLutador" />
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdLutador" Type="int" Nullable="false" />
+          <Property Name="IdTag" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Partida">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="idPerdedor" Type="int" />
+          <Property Name="IdVencedor" Type="int" />
+          <Property Name="DataPartida" Type="datetime2" Precision="7" />
+          <Property Name="IdLutadorCasa" Type="int" />
+          <Property Name="IdLutadorVisitante" Type="int" />
+          <Property Name="PontosVencedor" Type="int" />
+          <Property Name="PontosPerdedor" Type="int" />
+          <Property Name="IdCenario" Type="int" />
+        </EntityType>
+        <EntityType Name="Tag">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nome" Type="nvarchar" MaxLength="100" Nullable="false" />
+        </EntityType>
+        <Association Name="FK__LutadorTa__IdLut__114A936A">
+          <End Role="Lutador" Type="Self.Lutador" Multiplicity="1" />
+          <End Role="LutadorTag" Type="Self.LutadorTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="LutadorTag">
+              <PropertyRef Name="IdLutador" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK__LutadorTa__IdTag__123EB7A3">
+          <End Role="Tag" Type="Self.Tag" Multiplicity="1" />
+          <End Role="LutadorTag" Type="Self.LutadorTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Tag">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="LutadorTag">
+              <PropertyRef Name="IdTag" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorCasa">
+          <End Role="Lutador" Type="Self.Lutador" Multiplicity="0..1" />
+          <End Role="Partida" Type="Self.Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdLutadorCasa" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_Cenario">
+          <End Role="Cenario" Type="Self.Cenario" Multiplicity="0..1" />
+          <End Role="Partida" Type="Self.Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Cenario">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdCenario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorPerdedor">
+          <End Role="Lutador" Type="Self.Lutador" Multiplicity="0..1" />
+          <End Role="Partida" Type="Self.Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="idPerdedor" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorVencedor">
+          <End Role="Lutador" Type="Self.Lutador" Multiplicity="0..1" />
+          <End Role="Partida" Type="Self.Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdVencedor" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorVisitante">
+          <End Role="Lutador" Type="Self.Lutador" Multiplicity="0..1" />
+          <End Role="Partida" Type="Self.Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdLutadorVisitante" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="lutasModelStoreContainer">
+          <EntitySet Name="Cenario" EntityType="Self.Cenario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Lutador" EntityType="Self.Lutador" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="LutadorTag" EntityType="Self.LutadorTag" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Partida" EntityType="Self.Partida" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Tag" EntityType="Self.Tag" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK__LutadorTa__IdLut__114A936A" Association="Self.FK__LutadorTa__IdLut__114A936A">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="LutadorTag" EntitySet="LutadorTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK__LutadorTa__IdTag__123EB7A3" Association="Self.FK__LutadorTa__IdTag__123EB7A3">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="LutadorTag" EntitySet="LutadorTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorCasa" Association="Self.FK_Partida_LutadorCasa">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_Cenario" Association="Self.FK_Partida_Cenario">
+            <End Role="Cenario" EntitySet="Cenario" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorPerdedor" Association="Self.FK_Partida_LutadorPerdedor">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorVencedor" Association="Self.FK_Partida_LutadorVencedor">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorVisitante" Association="Self.FK_Partida_LutadorVisitante">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="lutasModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Lutador">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Exp" Type="Double" />
+          <Property Name="Nivel" Type="Int32" />
+          <Property Name="RatingElo" Type="Int32" Nullable="false" />
+          <Property Name="Nome" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Universo" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Autor" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Portrait" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Stand" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="PastaPersonagem" Type="String" MaxLength="500" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="PartidaCasa" Relationship="lutasModel.FK_Partida_LutadorCasa" FromRole="Lutador" ToRole="Partida" />
+          <NavigationProperty Name="PartidaPerdida" Relationship="lutasModel.FK_Partida_LutadorPerdedor" FromRole="Lutador" ToRole="Partida" />
+          <NavigationProperty Name="PartidaVencida" Relationship="lutasModel.FK_Partida_LutadorVencedor" FromRole="Lutador" ToRole="Partida" />
+          <NavigationProperty Name="PartidaVisitante" Relationship="lutasModel.FK_Partida_LutadorVisitante" FromRole="Lutador" ToRole="Partida" />
+          <NavigationProperty Name="Tag" Relationship="lutasModel.LutadorTag" FromRole="Lutador" ToRole="Tag" />
+        </EntityType>
+        <EntityType Name="Partida">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="idPerdedor" Type="Int32" />
+          <Property Name="IdVencedor" Type="Int32" />
+          <Property Name="DataPartida" Type="DateTime" Precision="7" />
+          <Property Name="IdLutadorCasa" Type="Int32" />
+          <Property Name="IdLutadorVisitante" Type="Int32" />
+          <Property Name="PontosVencedor" Type="Int32" />
+          <Property Name="PontosPerdedor" Type="Int32" />
+          <Property Name="IdCenario" Type="Int32" />
+          <NavigationProperty Name="Cenario" Relationship="lutasModel.FK_Partida_Cenario" FromRole="Partida" ToRole="Cenario" />
+          <NavigationProperty Name="LutadorCasa" Relationship="lutasModel.FK_Partida_LutadorCasa" FromRole="Partida" ToRole="Lutador" />
+          <NavigationProperty Name="LutadorPerdedor" Relationship="lutasModel.FK_Partida_LutadorPerdedor" FromRole="Partida" ToRole="Lutador" />
+          <NavigationProperty Name="LutadorVencedor" Relationship="lutasModel.FK_Partida_LutadorVencedor" FromRole="Partida" ToRole="Lutador" />
+          <NavigationProperty Name="LutadorVisitante" Relationship="lutasModel.FK_Partida_LutadorVisitante" FromRole="Partida" ToRole="Lutador" />
+        </EntityType>
+        <EntityType Name="Cenario">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nome" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="ArquivoDef" Type="String" Nullable="false" MaxLength="260" FixedLength="false" Unicode="true" />
+          <Property Name="Universo" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Autor" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Imagem" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Ativo" Type="Boolean" Nullable="false" />
+          <Property Name="Excluido" Type="Boolean" Nullable="false" />
+          <Property Name="DataCadastro" Type="DateTime" Nullable="false" Precision="7" />
+          <Property Name="DataAtualizacao" Type="DateTime" Precision="7" />
+          <Property Name="CenasJson" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="Partida" Relationship="lutasModel.FK_Partida_Cenario" FromRole="Cenario" ToRole="Partida" />
+        </EntityType>
+        <EntityContainer Name="lutasEntities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Cenario" EntityType="Self.Cenario" />
+          <EntitySet Name="Lutador" EntityType="Self.Lutador" />
+          <EntitySet Name="Partida" EntityType="Self.Partida" />
+          <AssociationSet Name="FK_Partida_LutadorCasa" Association="lutasModel.FK_Partida_LutadorCasa">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_Cenario" Association="lutasModel.FK_Partida_Cenario">
+            <End Role="Cenario" EntitySet="Cenario" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorPerdedor" Association="lutasModel.FK_Partida_LutadorPerdedor">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorVencedor" Association="lutasModel.FK_Partida_LutadorVencedor">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Partida_LutadorVisitante" Association="lutasModel.FK_Partida_LutadorVisitante">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Partida" EntitySet="Partida" />
+          </AssociationSet>
+          <EntitySet Name="Tag" EntityType="lutasModel.Tag" />
+          <AssociationSet Name="LutadorTag" Association="lutasModel.LutadorTag">
+            <End Role="Lutador" EntitySet="Lutador" />
+            <End Role="Tag" EntitySet="Tag" />
+          </AssociationSet>
+        </EntityContainer>
+        <Association Name="FK_Partida_LutadorCasa">
+          <End Type="lutasModel.Lutador" Role="Lutador" Multiplicity="0..1" />
+          <End Type="lutasModel.Partida" Role="Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdLutadorCasa" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_Cenario">
+          <End Type="lutasModel.Cenario" Role="Cenario" Multiplicity="0..1" />
+          <End Type="lutasModel.Partida" Role="Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Cenario">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdCenario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorPerdedor">
+          <End Type="lutasModel.Lutador" Role="Lutador" Multiplicity="0..1" />
+          <End Type="lutasModel.Partida" Role="Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="idPerdedor" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorVencedor">
+          <End Type="lutasModel.Lutador" Role="Lutador" Multiplicity="0..1" />
+          <End Type="lutasModel.Partida" Role="Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdVencedor" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Partida_LutadorVisitante">
+          <End Type="lutasModel.Lutador" Role="Lutador" Multiplicity="0..1" />
+          <End Type="lutasModel.Partida" Role="Partida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Lutador">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Partida">
+              <PropertyRef Name="IdLutadorVisitante" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="Tag">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nome" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="Lutador" Relationship="lutasModel.LutadorTag" FromRole="Tag" ToRole="Lutador" />
+        </EntityType>
+        <Association Name="LutadorTag">
+          <End Type="lutasModel.Lutador" Role="Lutador" Multiplicity="*" />
+          <End Type="lutasModel.Tag" Role="Tag" Multiplicity="*" />
+        </Association>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="lutasModelStoreContainer" CdmEntityContainer="lutasEntities">
+          <EntitySetMapping Name="Cenario">
+            <EntityTypeMapping TypeName="lutasModel.Cenario">
+              <MappingFragment StoreEntitySet="Cenario">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Nome" ColumnName="Nome" />
+                <ScalarProperty Name="ArquivoDef" ColumnName="ArquivoDef" />
+                <ScalarProperty Name="Universo" ColumnName="Universo" />
+                <ScalarProperty Name="Autor" ColumnName="Autor" />
+                <ScalarProperty Name="Imagem" ColumnName="Imagem" />
+                <ScalarProperty Name="Ativo" ColumnName="Ativo" />
+                <ScalarProperty Name="Excluido" ColumnName="Excluido" />
+                <ScalarProperty Name="DataCadastro" ColumnName="DataCadastro" />
+                <ScalarProperty Name="DataAtualizacao" ColumnName="DataAtualizacao" />
+                <ScalarProperty Name="CenasJson" ColumnName="CenasJson" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Lutador">
+            <EntityTypeMapping TypeName="lutasModel.Lutador">
+              <MappingFragment StoreEntitySet="Lutador">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Exp" ColumnName="Exp" />
+                <ScalarProperty Name="Nivel" ColumnName="Nivel" />
+                <ScalarProperty Name="RatingElo" ColumnName="RatingElo" />
+                <ScalarProperty Name="Nome" ColumnName="Nome" />
+                <ScalarProperty Name="Universo" ColumnName="Universo" />
+                <ScalarProperty Name="Autor" ColumnName="Autor" />
+                <ScalarProperty Name="Portrait" ColumnName="Portrait" />
+                <ScalarProperty Name="Stand" ColumnName="Stand" />
+                <ScalarProperty Name="PastaPersonagem" ColumnName="PastaPersonagem" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Partida">
+            <EntityTypeMapping TypeName="lutasModel.Partida">
+              <MappingFragment StoreEntitySet="Partida">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="idPerdedor" ColumnName="idPerdedor" />
+                <ScalarProperty Name="IdVencedor" ColumnName="IdVencedor" />
+                <ScalarProperty Name="DataPartida" ColumnName="DataPartida" />
+                <ScalarProperty Name="IdLutadorCasa" ColumnName="IdLutadorCasa" />
+                <ScalarProperty Name="IdLutadorVisitante" ColumnName="IdLutadorVisitante" />
+                <ScalarProperty Name="PontosVencedor" ColumnName="PontosVencedor" />
+                <ScalarProperty Name="PontosPerdedor" ColumnName="PontosPerdedor" />
+                <ScalarProperty Name="IdCenario" ColumnName="IdCenario" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Tag">
+            <EntityTypeMapping TypeName="lutasModel.Tag">
+              <MappingFragment StoreEntitySet="Tag">
+                <ScalarProperty Name="Nome" ColumnName="Nome" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="LutadorTag" TypeName="lutasModel.LutadorTag" StoreEntitySet="LutadorTag">
+            <EndProperty Name="Tag">
+              <ScalarProperty Name="Id" ColumnName="IdTag" />
+            </EndProperty>
+            <EndProperty Name="Lutador">
+              <ScalarProperty Name="Id" ColumnName="IdLutador" />
+            </EndProperty>
+          </AssociationSetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="false" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

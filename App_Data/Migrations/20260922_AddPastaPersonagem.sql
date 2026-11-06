@@ -1,0 +1,10 @@
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+IF COL_LENGTH('dbo.Lutador', 'PastaPersonagem') IS NULL
+BEGIN
+    ALTER TABLE dbo.Lutador
+        ADD PastaPersonagem NVARCHAR(500) NULL;
+END;
+
+COMMIT TRANSACTION;
